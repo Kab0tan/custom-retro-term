@@ -1,0 +1,20 @@
+name: Feature request
+description: Suggest an idea for the app
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What would you like to do?
+      description: The problem or use case, not only the solution.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: How could it work?
+  - type: textarea
+    id: plugin
+    attributes:
+      label: Could it be a plugin?
+      description: Many panel ideas can be built as a plugin (docs/plugin-api.md) without changing the app.

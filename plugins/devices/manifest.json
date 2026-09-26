@@ -1,0 +1,15 @@
+{
+  "id": "devices",
+  "name": "Device map",
+  "version": "1.0.0",
+  "apiVersion": 1,
+  "description": "What's plugged in: USB devices, paired Bluetooth devices with battery, displays and network links.",
+  "entry": "index.js",
+  "defaultTitle": "DEVICE MAP",
+  "data": ["devices"],
+  "settings": [
+    { "key": "showOffline", "label": "Paired Bluetooth devices that are off", "type": "boolean", "default": true },
+    { "key": "showDisplays", "label": "Displays", "type": "boolean", "default": true },
+    { "key": "showNetwork", "label": "Network links", "type": "boolean", "default": true }
+  ]
+}

@@ -1,0 +1,39 @@
+name: Plugin proposal
+description: Propose a plugin for the official (bundled) set
+labels: [plugin-proposal]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for building a plugin! The maintainers will review the code and decide whether it fits the official
+        repo. Not every good plugin gets bundled; you can always keep using yours locally.
+  - type: input
+    id: source
+    attributes:
+      label: Plugin source
+      description: Link to the repository or folder.
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What does it show or do?
+      description: Include a screenshot.
+    validations:
+      required: true
+  - type: textarea
+    id: permissions
+    attributes:
+      label: Data topics and network hosts
+      description: What it declares in manifest.json (`data`, `permissions.network`) and why it needs them.
+    validations:
+      required: true
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checklist
+      options:
+        - label: It works on Windows, macOS and Linux, or shows a clear message where data isn't available.
+        - label: It doesn't animate or redraw when nothing changes (no idle GPU/CPU use).
+        - label: I agree to license the plugin under the project's MIT License if it's bundled.
+          required: true

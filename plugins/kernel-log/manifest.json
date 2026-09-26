@@ -1,0 +1,19 @@
+{
+  "id": "kernel-log",
+  "name": "Kernel log",
+  "version": "1.0.0",
+  "apiVersion": 1,
+  "description": "Live system and kernel log, dmesg style.",
+  "entry": "index.js",
+  "defaultTitle": "KERNEL LOG",
+  "data": ["log"],
+  "settings": [
+    { "key": "minLevel", "label": "Show", "type": "select", "default": "info", "options": [
+      { "value": "info", "label": "Everything" },
+      { "value": "warning", "label": "Warnings and errors" },
+      { "value": "error", "label": "Errors only" }
+    ] },
+    { "key": "maxLines", "label": "Lines kept", "type": "number", "default": 300, "min": 50, "max": 1000, "step": 50 },
+    { "key": "showSource", "label": "Show source", "type": "boolean", "default": true }
+  ]
+}

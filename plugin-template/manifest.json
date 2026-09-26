@@ -1,0 +1,15 @@
+{
+  "id": "my-plugin",
+  "name": "My plugin",
+  "version": "0.1.0",
+  "apiVersion": 1,
+  "description": "Starter plugin: a phosphor clock. Edit index.js and save; the panel reloads.",
+  "entry": "index.js",
+  "defaultTitle": "MY PLUGIN",
+  "data": ["cpu"],
+  "permissions": { "network": [] },
+  "settings": [
+    { "key": "seconds", "label": "Show seconds", "type": "boolean", "default": true },
+    { "key": "size", "label": "Size", "type": "number", "default": 44, "min": 16, "max": 120, "step": 2 }
+  ]
+}

@@ -1,0 +1,42 @@
+name: Bug report
+description: Something doesn't work as expected
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: App version
+      description: Settings → Updates
+      placeholder: 0.1.0
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options: [Windows 11, Windows 10, macOS (Apple silicon), macOS (Intel), Linux (X11), Linux (Wayland)]
+    validations:
+      required: true
+  - type: dropdown
+    id: renderer
+    attributes:
+      label: Renderer
+      description: Settings → Rendering → Renderer
+      options: [WebGL (default), CSS overlay]
+  - type: input
+    id: shell
+    attributes:
+      label: Shell
+      placeholder: PowerShell 7, zsh, WSL Ubuntu…
+  - type: textarea
+    id: extra
+    attributes:
+      label: Screenshots, logs, GPU model
+      description: For rendering problems, a screenshot and your GPU model help a lot.

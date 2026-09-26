@@ -1,0 +1,58 @@
+:root {
+  /* Keep --chrome-bg / --chrome-fg in sync with CHROME_BG / CHROME_FG in src/main/windows.ts. */
+  --chrome-bg: #1b1b1f;
+  --chrome-fg: #c8c8cc;
+  --chrome-dim: #8a8a92;
+  --chrome-hover: #2a2a30;
+  --chrome-border: #2e2e35;
+  --term-bg: #0c0c0c;
+  --accent: #4d9fff;
+  --danger: #e74856;
+  --panel-bg: #1f1f24;
+  --popup-bg: #242429;
+  --field-bg: #151518;
+  --titlebar-h: 36px;
+  --ui-font: 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif;
+  color-scheme: dark;
+}
+html,
+body,
+#app {
+  margin: 0;
+  height: 100%;
+  background: var(--term-bg);
+  color: var(--chrome-fg);
+  font-family: var(--ui-font);
+  font-size: 13px;
+  overflow: hidden;
+}
+* {
+  box-sizing: border-box;
+}
+button,
+input,
+select {
+  font: inherit;
+  color: inherit;
+}
+:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: -1px;
+}
+
+/* Colours come from the phosphor tokens (src/shared/phosphor.ts), set as CSS variables on .app
+   by App.vue, so switching phosphor restyles everything at once. The :root values above are
+   only the pre-load fallback. The phosphor scheme also gets the retro UI font. */
+.app {
+  background: var(--term-bg);
+  color: var(--chrome-fg);
+}
+.scheme-phosphor {
+  --ui-font: 'Share Tech Mono', 'IBM Plex Mono', monospace;
+  font-family: var(--ui-font);
+  font-size: 14px;
+  letter-spacing: 0.02em;
+}
+.scheme-phosphor ::selection {
+  background: var(--phosphor-glow);
+}

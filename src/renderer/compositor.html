@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'"
+    />
+    <title>CRT Terminal</title>
+    <style>
+      html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+      canvas { display: block; width: 100vw; height: 100vh; outline: none; touch-action: none; }
+      /* Receives typed text; kept focusable but invisible. Bottom-left so IME popups sit sensibly. */
+      #kbd {
+        position: fixed; left: 8px; bottom: 8px; width: 1px; height: 1px; padding: 0; border: 0;
+        opacity: 0; resize: none; overflow: hidden; pointer-events: none;
+      }
+      #drag > div { position: fixed; -webkit-app-region: drag; }
+      #hud {
+        position: fixed; bottom: 12px; right: 12px; padding: 6px 8px; font: 11px/1.4 Consolas, monospace;
+        color: #ffcf70; background: rgba(0, 0, 0, 0.75); border: 1px solid #7a5a1e; white-space: pre; pointer-events: none;
+      }
+      #hud[hidden] { display: none; }
+    </style>
+  </head>
+  <body>
+    <canvas id="screen"></canvas>
+    <div id="drag"></div>
+    <textarea id="kbd" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="Terminal input"></textarea>
+    <div id="hud" hidden></div>
+    <script type="module" src="/src/compositor/main.ts"></script>
+  </body>
+</html>

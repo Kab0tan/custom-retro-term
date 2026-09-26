@@ -1,0 +1,82 @@
+# Installers for Windows, macOS and Linux. Build with `npm run dist` (current OS) or dist:win / dist:mac /
+# dist:linux. CI builds all three: .github/workflows/release.yml. Guide: docs/packaging.md.
+appId: dev.crtterminal.app
+productName: CRT Terminal
+executableName: crt-terminal
+copyright: Copyright © 2026 CRT Terminal contributors (MIT License)
+
+directories:
+  output: dist
+  buildResources: build
+
+files:
+  - out/**
+  - package.json
+  - '!**/*.map'
+  # node-pty sources, winpty sources and install-time files: not loaded at runtime.
+  - '!node_modules/node-pty/{deps,src,scripts,third_party,typings}/**'
+  - '!node_modules/node-pty/{binding.gyp,lib/**/*.test.js}'
+
+# Read by the app at runtime and copied into the user's plugin folder, so they live outside the asar.
+extraResources:
+  - from: plugins
+    to: plugins
+  - from: plugin-runtime
+    to: plugin-runtime
+  - from: plugin-template
+    to: plugin-template
+
+# Native module: must be a real file on disk to load.
+asarUnpack:
+  - node_modules/node-pty/**
+
+# node-pty ships N-API binaries, which don't need rebuilding for Electron.
+npmRebuild: false
+
+win:
+  target:
+    - nsis
+  icon: build/icon.ico
+  # Code signing (optional, avoids SmartScreen warnings): set CSC_LINK (path/URL/base64 of a .pfx) and
+  # CSC_KEY_PASSWORD, or use Azure Trusted Signing (see docs). Without them the installer is unsigned.
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  artifactName: ${productName}-Setup-${version}.${ext}
+
+mac:
+  target:
+    - dmg
+    - zip # the auto-updater installs from the zip
+  icon: build/icon.png
+  category: public.app-category.developer-tools
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.plist
+  # Signing: CSC_LINK + CSC_KEY_PASSWORD (Developer ID Application certificate).
+  # Notarization runs automatically when APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD and APPLE_TEAM_ID are set.
+
+dmg:
+  artifactName: ${productName}-${version}-${arch}.${ext}
+
+linux:
+  target:
+    - AppImage
+    - deb
+  icon: build/icon.png
+  category: Development
+  synopsis: Retro CRT terminal with plugin panels
+  maintainer: CRT Terminal contributors <102856493+Kab0tan@users.noreply.github.com>
+
+appImage:
+  artifactName: ${productName}-${version}-${arch}.${ext}
+
+# Auto-updates read releases from here. Replace owner/repo with yours; until then the app skips update checks.
+publish:
+  provider: github
+  owner: Kab0tan
+  repo: custom-retro-term
