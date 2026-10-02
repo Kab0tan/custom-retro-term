@@ -30,7 +30,8 @@ interface TerminalWindow {
   win: BrowserWindow
   /** WebContents running the UI; differs from win.webContents in webgl mode. */
   ui: WebContents
-  tabCount: number
+  /** Shells open in it: panes across all tabs. */
+  shellCount: number
   closeConfirmed: boolean
 }
 
@@ -63,12 +64,13 @@ function track(tw: TerminalWindow): void {
   windows.set(ui.id, tw)
   win.on('close', (e) => {
     saveWindowState(win)
-    if (tw.closeConfirmed || tw.tabCount <= 1 || !getSettings().confirmCloseMultipleTabs) return
+    if (tw.closeConfirmed || tw.shellCount <= 1 || !getSettings().confirmCloseMultipleTabs) return
     e.preventDefault()
     const choice = dialog.showMessageBoxSync(win, {
       type: 'question',
       title: 'Close window?',
-      message: `Close all ${tw.tabCount} tabs?`,
+      message: `Close all ${tw.shellCount} shells?`,
+      detail: 'Every shell in this window (tabs and split panes) will be stopped.',
       buttons: ['Close all', 'Cancel'],
       defaultId: 0,
       cancelId: 1
@@ -99,7 +101,7 @@ export async function createWindow(): Promise<BrowserWindow> {
     const c = await openComposited({ bounds, preloadPath, loadPage, maximized: state.maximized && windows.size === 0 })
     harden(c.win.webContents)
     harden(c.ui)
-    track({ win: c.win, ui: c.ui, tabCount: 1, closeConfirmed: false })
+    track({ win: c.win, ui: c.ui, shellCount: 1, closeConfirmed: false })
     return c.win
   }
 
@@ -118,7 +120,7 @@ export async function createWindow(): Promise<BrowserWindow> {
     webPreferences: { preload: preloadPath('index'), sandbox: true, contextIsolation: true, spellcheck: false }
   })
   harden(win.webContents)
-  track({ win, ui: win.webContents, tabCount: 1, closeConfirmed: false })
+  track({ win, ui: win.webContents, shellCount: 1, closeConfirmed: false })
   // Phosphor changes recolour Windows' caption buttons live too.
   const recolour = (s: Settings): void => {
     if (win.isDestroyed()) return
@@ -149,6 +151,7 @@ export function registerWindowIpc(): void {
     'app:platform',
     (): PlatformInfo => ({
       windowsBuild: Number(os.release().split('.')[2]) || 0,
+      hostname: os.hostname(),
       frame: IS_MAC ? 'mac' : renderer === 'webgl' ? 'custom' : 'overlay',
       renderer,
       os: process.platform === 'darwin' ? 'darwin' : process.platform === 'linux' ? 'linux' : 'win32'
@@ -158,12 +161,12 @@ export function registerWindowIpc(): void {
   ipcMain.on('window:close', (e) => {
     const tw = fromUi(e.sender)
     if (!tw) return
-    tw.closeConfirmed = true // the renderer only asks once its tabs are gone
+    tw.closeConfirmed = true // the renderer only asks once its shells are gone
     tw.win.close()
   })
-  ipcMain.on('window:tabCount', (e, n: number) => {
+  ipcMain.on('window:shellCount', (e, n: number) => {
     const tw = fromUi(e.sender)
-    if (tw) tw.tabCount = n
+    if (tw) tw.shellCount = n
   })
   ipcMain.on('window:toggleFullscreen', (e) => {
     const tw = fromUi(e.sender)

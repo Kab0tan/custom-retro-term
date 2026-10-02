@@ -14,20 +14,9 @@ import {
   sanitizeLayout,
   setPanelPlugin,
   splitPanel,
-  type LayoutNode,
   type SplitNode
 } from '@shared/layout'
-
-const sum = (xs: number[]): number => xs.reduce((a, b) => a + b, 0)
-
-/** Every split's sizes add up to 1 and no split has a single child. */
-function expectWellFormed(n: LayoutNode): void {
-  if (n.type === 'panel') return
-  expect(n.children.length).toBeGreaterThan(1)
-  expect(n.sizes).toHaveLength(n.children.length)
-  expect(sum(n.sizes)).toBeCloseTo(1, 6)
-  n.children.forEach(expectWellFormed)
-}
+import { expectWellFormed, sum } from './trees'
 
 describe('built-in layouts', () => {
   it('have exactly one terminal panel and are well formed', () => {

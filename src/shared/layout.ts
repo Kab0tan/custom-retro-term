@@ -4,6 +4,9 @@
  * Every operation returns a new tree; inputs are never mutated.
  */
 import { PLUGIN_ID } from './plugins'
+import { insertBeside, leaves, mapTree, MIN_FRACTION, newId, normalize, prune, split, type Side, type Split, type Tree } from './tree'
+
+export { MIN_FRACTION, newId, normalize, resizeSplit } from './tree'
 
 /**
  * terminal: the shell pane (hosts the tabs). Exactly one per layout.
@@ -20,17 +23,9 @@ export interface PanelNode {
   plugin?: string
 }
 
-export interface SplitNode {
-  type: 'split'
-  id: string
-  /** row = children side by side, column = stacked. */
-  dir: 'row' | 'column'
-  children: LayoutNode[]
-  /** Fractions of the split's size, one per child, summing to 1. */
-  sizes: number[]
-}
+export type SplitNode = Split<PanelNode>
 
-export type LayoutNode = PanelNode | SplitNode
+export type LayoutNode = Tree<PanelNode>
 
 export interface SavedLayout {
   id: string
@@ -39,24 +34,10 @@ export interface SavedLayout {
 }
 
 /** Where a dragged panel lands relative to the target: an edge docks beside it, center swaps. */
-export type DropZone = 'left' | 'right' | 'top' | 'bottom' | 'center'
-
-/** No pane may shrink below this fraction of its split. */
-export const MIN_FRACTION = 0.08
-
-let counter = 0
-export const newId = (prefix: string): string => `${prefix}-${Date.now().toString(36)}${(counter++).toString(36)}`
+export type DropZone = Side | 'center'
 
 export const panel = (kind: PanelKind, title: string, id = newId('p'), plugin?: string): PanelNode =>
   plugin ? { type: 'panel', id, kind, title, plugin } : { type: 'panel', id, kind, title }
-
-const split = (dir: SplitNode['dir'], children: LayoutNode[], sizes?: number[], id = newId('s')): SplitNode => ({
-  type: 'split',
-  id,
-  dir,
-  children,
-  sizes: sizes ?? children.map(() => 1 / children.length)
-})
 
 // ------------------------------------------------------------------ built-in layouts
 /**
@@ -102,9 +83,7 @@ export const TERMINAL_ONLY_LAYOUT: SavedLayout = {
 export const BUILTIN_LAYOUTS: SavedLayout[] = [HELIOS7_LAYOUT, TERMINAL_ONLY_LAYOUT]
 
 // ------------------------------------------------------------------ queries
-export function panels(root: LayoutNode): PanelNode[] {
-  return root.type === 'panel' ? [root] : root.children.flatMap(panels)
-}
+export const panels = (root: LayoutNode): PanelNode[] => leaves(root)
 
 function findPanel(root: LayoutNode, id: string): PanelNode | undefined {
   return panels(root).find((p) => p.id === id)
@@ -119,55 +98,9 @@ export function sameLayout(a: LayoutNode, b: LayoutNode): boolean {
   return JSON.stringify(shape(a)) === JSON.stringify(shape(b))
 }
 
-// ------------------------------------------------------------------ cleanup
-/** Collapse single-child splits, merge same-direction nesting, renormalise sizes. */
-export function normalize(node: LayoutNode): LayoutNode {
-  if (node.type === 'panel') return node
-  const children: LayoutNode[] = []
-  const sizes: number[] = []
-  node.children.forEach((c, i) => {
-    const n = normalize(c)
-    const size = node.sizes[i] ?? 1 / node.children.length
-    if (n.type === 'split' && n.dir === node.dir) {
-      n.children.forEach((gc, j) => {
-        children.push(gc)
-        sizes.push(size * n.sizes[j])
-      })
-    } else {
-      children.push(n)
-      sizes.push(size)
-    }
-  })
-  if (children.length === 1) return children[0]
-  const total = sizes.reduce((a, b) => a + b, 0) || 1
-  return { ...node, children, sizes: sizes.map((s) => s / total) }
-}
-
 // ------------------------------------------------------------------ edits
-function mapNode(node: LayoutNode, fn: (n: LayoutNode) => LayoutNode): LayoutNode {
-  const mapped = fn(node)
-  if (mapped.type === 'panel') return mapped
-  return { ...mapped, children: mapped.children.map((c) => mapNode(c, fn)) }
-}
-
-/**
- * Replace one panel. Unlike mapNode this doesn't descend into the replacement: the new split
- * contains the old panel, and walking into it would replace it again, forever.
- */
-function replacePanel(node: LayoutNode, id: string, fn: (p: PanelNode) => LayoutNode): LayoutNode {
-  if (node.type === 'panel') return node.id === id ? fn(node) : node
-  return { ...node, children: node.children.map((c) => replacePanel(c, id, fn)) }
-}
-
-/** Put `insert` beside the panel `targetId`, on the given side. */
-function insertBeside(root: LayoutNode, targetId: string, insert: PanelNode, zone: Exclude<DropZone, 'center'>): LayoutNode {
-  const dir: SplitNode['dir'] = zone === 'left' || zone === 'right' ? 'row' : 'column'
-  const before = zone === 'left' || zone === 'top'
-  return normalize(replacePanel(root, targetId, (n) => split(dir, before ? [insert, n] : [n, insert])))
-}
-
 /** Split a panel, adding a new empty slot beside it. */
-export function splitPanel(root: LayoutNode, targetId: string, zone: Exclude<DropZone, 'center'>, title = 'EMPTY'): LayoutNode {
+export function splitPanel(root: LayoutNode, targetId: string, zone: Side, title = 'EMPTY'): LayoutNode {
   return insertBeside(root, targetId, panel('empty', title), zone)
 }
 
@@ -190,29 +123,19 @@ export function addPanel(root: LayoutNode, title = 'EMPTY'): LayoutNode {
 /** Remove a panel. The terminal panel can't be removed. */
 export function removePanel(root: LayoutNode, id: string): LayoutNode {
   if (findPanel(root, id)?.kind === 'terminal') return root
-  const prune = (n: LayoutNode): LayoutNode | null => {
-    if (n.type === 'panel') return n.id === id ? null : n
-    const kept: Array<{ node: LayoutNode; size: number }> = []
-    n.children.forEach((c, i) => {
-      const p = prune(c)
-      if (p) kept.push({ node: p, size: n.sizes[i] })
-    })
-    if (!kept.length) return null
-    return { ...n, children: kept.map((k) => k.node), sizes: kept.map((k) => k.size) }
-  }
-  return normalize(prune(root) ?? root)
+  return normalize(prune(root, id) ?? root)
 }
 
 export function renamePanel(root: LayoutNode, id: string, title: string): LayoutNode {
   const t = title.trim().slice(0, 32)
   if (!t) return root
-  return mapNode(root, (n) => (n.type === 'panel' && n.id === id ? { ...n, title: t } : n))
+  return mapTree(root, (n) => (n.type === 'panel' && n.id === id ? { ...n, title: t } : n))
 }
 
 /** Put a plugin in a slot (or clear it). `title` replaces the old title if that was a default. */
 export function setPanelPlugin(root: LayoutNode, id: string, plugin: string | null, title: string | null, defaultTitles: string[]): LayoutNode {
   const defaults = new Set(['EMPTY', ...defaultTitles.map((t) => t.toUpperCase())])
-  return mapNode(root, (n) => {
+  return mapTree(root, (n) => {
     if (n.type !== 'panel' || n.id !== id || n.kind !== 'empty') return n
     const nextTitle = defaults.has(n.title.toUpperCase()) ? (title ?? 'EMPTY').toUpperCase().slice(0, 32) : n.title
     const { plugin: _old, ...rest } = n
@@ -227,32 +150,11 @@ export function movePanel(root: LayoutNode, srcId: string, targetId: string, zon
   const dst = findPanel(root, targetId)
   if (!src || !dst) return root
   if (zone === 'center') {
-    return mapNode(root, (n) => (n.type !== 'panel' ? n : n.id === srcId ? dst : n.id === targetId ? src : n))
+    return mapTree(root, (n) => (n.type !== 'panel' ? n : n.id === srcId ? dst : n.id === targetId ? src : n))
   }
   // Detach the source (even the terminal: it's re-inserted right away), then dock it.
-  const prune = (n: LayoutNode): LayoutNode | null => {
-    if (n.type === 'panel') return n.id === srcId ? null : n
-    const kept = n.children.map((c, i) => ({ node: prune(c), size: n.sizes[i] })).filter((k) => k.node)
-    return kept.length ? { ...n, children: kept.map((k) => k.node!), sizes: kept.map((k) => k.size) } : null
-  }
-  const without = prune(root)
+  const without = prune(root, srcId)
   return without ? insertBeside(normalize(without), targetId, src, zone) : root
-}
-
-/**
- * Resize the boundary between children `index` and `index + 1` of a split.
- * `delta` is a fraction of the split's size; both neighbours keep at least MIN_FRACTION.
- */
-export function resizeSplit(root: LayoutNode, splitId: string, index: number, delta: number): LayoutNode {
-  return mapNode(root, (n) => {
-    if (n.type !== 'split' || n.id !== splitId || index < 0 || index >= n.children.length - 1) return n
-    const sizes = [...n.sizes]
-    const pair = sizes[index] + sizes[index + 1]
-    const a = Math.min(pair - MIN_FRACTION, Math.max(MIN_FRACTION, sizes[index] + delta))
-    sizes[index] = a
-    sizes[index + 1] = pair - a
-    return { ...n, sizes }
-  })
 }
 
 // ------------------------------------------------------------------ validation

@@ -25,6 +25,8 @@ export interface ProfileList {
 /** Static facts the renderer needs to configure xterm for this machine. */
 export interface PlatformInfo {
   windowsBuild: number
+  /** This machine's name: a shell's OSC 7 working directory only counts if it names this host. */
+  hostname: string
   /**
    * Window chrome:
    * - overlay: tabs in the title bar, native caption buttons drawn by Windows (css renderer)

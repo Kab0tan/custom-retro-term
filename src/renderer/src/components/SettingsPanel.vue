@@ -148,7 +148,7 @@ onMounted(() => root.value?.querySelector<HTMLElement>('select, input')?.focus()
         <h2>Advanced</h2>
         <span />
         <div class="checks">
-          <label class="check"><input type="checkbox" :checked="settings.confirmCloseMultipleTabs" @change="set({ confirmCloseMultipleTabs: !settings.confirmCloseMultipleTabs })" /> Confirm before closing a window with several tabs</label>
+          <label class="check"><input type="checkbox" :checked="settings.confirmCloseMultipleTabs" @change="set({ confirmCloseMultipleTabs: !settings.confirmCloseMultipleTabs })" /> Confirm before closing a window with several shells (tabs or panes)</label>
           <label class="check"><input type="checkbox" :checked="settings.forceUtf8" @change="set({ forceUtf8: !settings.forceUtf8 })" /> Use UTF-8 in PowerShell and cmd <span class="dim">(new tabs)</span></label>
           <label class="check"><input type="checkbox" :checked="settings.useBundledConpty" @change="set({ useBundledConpty: !settings.useBundledConpty })" /> Use bundled ConPTY <span class="dim">(experimental, new tabs)</span></label>
         </div>

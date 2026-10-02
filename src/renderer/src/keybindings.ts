@@ -6,10 +6,14 @@
  * - Ctrl+C / Ctrl+V only act as copy/paste when the settings say so (and Ctrl+C only with a selection).
  * - Letters match the layout's letter (`key`, so AZERTY's W is W); digits match the physical key (`code`,
  *   since AZERTY digits need Shift). Non-Latin layouts fall back to the physical key for letters.
+ * - Alt+arrows and Ctrl+arrows stay with the shell (word moves, fish's prevd/nextd), and Ctrl+Shift+Up/Down
+ *   already scroll, so pane navigation lives behind a tmux-style prefix (see resolvePrefixKey) and only the
+ *   common pane actions get direct chords.
  */
+import type { PaneDirection } from '@shared/panes'
+
 export type Action =
   | { type: 'newTab'; profileIndex?: number }
-  | { type: 'closeTab' }
   | { type: 'nextTab' }
   | { type: 'prevTab' }
   | { type: 'newWindow' }
@@ -22,6 +26,17 @@ export type Action =
   | { type: 'fullscreen' }
   | { type: 'devtools' }
   | { type: 'scroll'; by: 'page' | 'line' | 'edge'; dir: -1 | 1 }
+  | { type: 'splitPane'; dir: 'right' | 'bottom' }
+  /** Closes the focused pane; the last pane takes its tab with it. */
+  | { type: 'closePane' }
+  | { type: 'focusPane'; dir: PaneDirection }
+  | { type: 'resizePane'; dir: PaneDirection }
+  | { type: 'zoomPane' }
+  | { type: 'nextPane'; dir: 1 | -1 }
+  | { type: 'swapPane'; dir: 1 | -1 }
+  | { type: 'equalizePanes' }
+  /** Arms the pane prefix: the next key is read by resolvePrefixKey. */
+  | { type: 'panePrefix' }
 
 export interface KeyContext {
   /** macOS: app shortcuts use Cmd, and every Ctrl chord goes to the shell. */
@@ -41,13 +56,13 @@ const digitOf = (e: KeyboardEvent): number | null => {
 }
 
 /** The letter a-z this key produces on the current layout, e.g. 'w'. */
-function letterOf(e: KeyboardEvent): string | null {
+function letterOf(e: Pick<KeyboardEvent, 'key' | 'code'>): string | null {
   if (/^[a-z]$/i.test(e.key)) return e.key.toLowerCase()
   const m = /^Key([A-Z])$/.exec(e.code)
   return m && e.key.length === 1 && !/^[ -~]$/.test(e.key) ? m[1].toLowerCase() : null
 }
 
-/** macOS conventions (Terminal/iTerm): Cmd+T/W/N/C/V/F/,/=/-/0, Cmd+Shift+[ ], Cmd+Ctrl+F. */
+/** macOS conventions (Terminal/iTerm): Cmd+T/W/N/C/V/F/D/,/=/-/0, Cmd+Shift+[ ] D Enter, Cmd+Ctrl+F. */
 function resolveMac(e: KeyboardEvent, ctx: KeyContext): Action | null {
   if (!e.metaKey || e.altKey) return null
   const letter = letterOf(e)
@@ -59,6 +74,10 @@ function resolveMac(e: KeyboardEvent, ctx: KeyContext): Action | null {
     if (e.code === 'BracketLeft') return { type: 'prevTab' }
     if (e.code === 'BracketRight') return { type: 'nextTab' }
     if (letter === 'e') return { type: 'tweaks' }
+    if (letter === 'd') return { type: 'splitPane', dir: 'bottom' }
+    if (e.key === 'Enter') return { type: 'zoomPane' }
+    // Ctrl+Space is the input-source switch on macOS (and Ctrl chords belong to the shell there).
+    if (e.code === 'Space' || e.key === ' ') return { type: 'panePrefix' }
     if (k === '+') return { type: 'zoom', delta: 1 }
     return null
   }
@@ -66,7 +85,9 @@ function resolveMac(e: KeyboardEvent, ctx: KeyContext): Action | null {
     case 't':
       return { type: 'newTab' }
     case 'w':
-      return { type: 'closeTab' }
+      return { type: 'closePane' }
+    case 'd':
+      return { type: 'splitPane', dir: 'right' }
     case 'n':
       return { type: 'newWindow' }
     case 'f':
@@ -109,14 +130,21 @@ export function resolveAction(e: KeyboardEvent, ctx: KeyContext): Action | null 
       case 't':
         return { type: 'newTab' }
       case 'w':
-        return { type: 'closeTab' }
+        return { type: 'closePane' }
       case 'n':
         return { type: 'newWindow' }
       case 'f':
         return { type: 'find' }
       case 'e':
         return { type: 'tweaks' }
+      case 'd':
+        return { type: 'splitPane', dir: 'right' }
+      case 's':
+        return { type: 'splitPane', dir: 'bottom' }
+      case 'z':
+        return { type: 'zoomPane' }
     }
+    if (e.code === 'Space' || e.key === ' ') return { type: 'panePrefix' }
     if (e.key === 'F12') return { type: 'devtools' }
     if (e.key === 'Tab') return { type: 'prevTab' }
     // Layouts where + and 0 need Shift (AZERTY: Shift+= and Shift+0).
@@ -155,6 +183,39 @@ export function resolveAction(e: KeyboardEvent, ctx: KeyContext): Action | null 
       if (e.key === 'PageUp') return { type: 'scroll', by: 'page', dir: -1 }
       if (e.key === 'PageDown') return { type: 'scroll', by: 'page', dir: 1 }
     }
+  }
+  return null
+}
+
+const ARROWS: Record<string, PaneDirection> = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down' }
+
+/**
+ * The key pressed after the pane prefix (tmux keys): arrows focus, Shift+arrows resize, % and " split,
+ * z zoom, x close, o next pane, { } swap, E spread evenly. Characters come from `key`, so they work on
+ * any layout (AZERTY's % and ", AltGr's { }). Null for anything else, which just ends the prefix.
+ */
+export function resolvePrefixKey(e: Pick<KeyboardEvent, 'key' | 'code' | 'shiftKey'>): Action | null {
+  const arrow = ARROWS[e.key]
+  if (arrow) return e.shiftKey ? { type: 'resizePane', dir: arrow } : { type: 'focusPane', dir: arrow }
+  switch (e.key) {
+    case '%':
+      return { type: 'splitPane', dir: 'right' }
+    case '"':
+      return { type: 'splitPane', dir: 'bottom' }
+    case '{':
+      return { type: 'swapPane', dir: -1 }
+    case '}':
+      return { type: 'swapPane', dir: 1 }
+  }
+  const letter = letterOf(e)
+  if (letter === 'e' && (e.key === 'E' || e.shiftKey)) return { type: 'equalizePanes' }
+  switch (letter) {
+    case 'z':
+      return { type: 'zoomPane' }
+    case 'x':
+      return { type: 'closePane' }
+    case 'o':
+      return { type: 'nextPane', dir: 1 }
   }
   return null
 }

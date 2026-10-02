@@ -5,6 +5,27 @@ All notable changes to this project are listed here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Split panes inside a tab (tmux / Windows Terminal style): split right (Ctrl+Shift+D, ⌘D) or down (Ctrl+Shift+S,
+  ⌘⇧D), zoom (Ctrl+Shift+Z, ⌘⇧Enter), and a tmux-style prefix (Ctrl+Shift+Space, ⌘⇧Space) to move between panes
+  with the arrows, resize with Shift+arrows, swap, close and spread them evenly. Gutters between panes can be dragged
+  or nudged with the arrow keys. Up to 8 panes per tab.
+- A new pane starts in the same folder as the pane it was split from, when the shell reports it (OSC 7, OSC 9;9) or,
+  on Linux, from the process.
+
+### Changed
+
+- Ctrl+Shift+W (⌘W) closes the focused pane; closing the last pane closes the tab.
+- A shell that exits cleanly closes its pane instead of the whole tab.
+- "Close all N tabs?" when closing a window now counts shells (panes across all tabs).
+- A new shell whose requested folder doesn't exist starts in its profile's folder instead of the home folder.
+
+### Fixed
+
+- Resizing two neighbouring panels that were together smaller than the minimum size could give one of them a
+  negative size.
+
 ## [0.1.0] - 2026-09-26
 
 First public release.

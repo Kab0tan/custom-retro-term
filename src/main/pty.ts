@@ -1,4 +1,5 @@
 import { existsSync } from 'node:fs'
+import { readlink } from 'node:fs/promises'
 import os from 'node:os'
 import { app, ipcMain, type WebContents } from 'electron'
 import * as pty from 'node-pty'
@@ -65,10 +66,11 @@ function expandPath(p: string): string {
     .replace(/\$(\w+)|\$\{(\w+)\}/g, (m, a, b) => process.env[a ?? b] ?? m)
 }
 
+/** The requested folder (a new pane starts where its neighbour is), else the profile's, else home. */
 function resolveCwd(requested: string | undefined, profile: ShellProfile): string {
-  const home = os.homedir()
-  const cwd = requested ?? (profile.cwd ? expandPath(profile.cwd) : home)
-  return existsSync(cwd) ? cwd : home
+  if (requested && existsSync(requested)) return requested
+  const cwd = profile.cwd ? expandPath(profile.cwd) : ''
+  return cwd && existsSync(cwd) ? cwd : os.homedir()
 }
 
 function flush(s: Session): void {
@@ -160,6 +162,16 @@ export function registerPtyIpc(): void {
     if (s.paused && s.unacked < LOW_WATERMARK) {
       s.paused = false
       s.proc.resume()
+    }
+  })
+  // Where a shell is, for shells that don't report it (OSC 7 / OSC 9;9). Linux only: /proc has it.
+  ipcMain.handle('pty:cwd', async (e, id: number): Promise<string | null> => {
+    const s = own(e, id)
+    if (!s || process.platform !== 'linux') return null
+    try {
+      return await readlink(`/proc/${s.proc.pid}/cwd`)
+    } catch {
+      return null
     }
   })
   ipcMain.on('pty:kill', (e, id: number) => {

@@ -15,7 +15,14 @@ import { fontStack, terminalTheme } from '../theme'
 
 const props = defineProps<{
   profileId: string | null
-  active: boolean
+  /** Folder to start in (a new pane starts where the pane it was split from is); else the profile's. */
+  cwd?: string | null
+  /** On screen: its tab is shown and no other pane is zoomed. Hidden panes have no size and don't fit. */
+  visible: boolean
+  /** The pane with keyboard focus: target of search, paste, drops and host text; the only one that blinks. */
+  focused: boolean
+  /** May use a WebGL context (App keeps the visible panes within Chromium's budget). */
+  webgl: boolean
   settings: Settings
   platform: PlatformInfo
   /** Window-level zoom added to settings.fontSize. */
@@ -25,7 +32,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   title: [title: string]
   spawned: [profile: Pick<ShellProfile, 'id' | 'name' | 'kind'>]
-  /** Shell ended cleanly: the tab should close. */
+  /** Shell ended cleanly: the pane should close. */
   done: []
   /** An app shortcut pressed inside this terminal. */
   action: [action: Action]
@@ -40,19 +47,21 @@ let webgl: WebglAddon | null = null
 let ptyId: number | null = null
 let kind: ShellProfile['kind'] = 'custom'
 let exited = false
+/** Last working directory the shell reported (OSC 7 / OSC 9;9). */
+let reportedCwd: string | null = null
 let unsubscribe: (() => void) | null = null
 const disposables: IDisposable[] = []
 let ro: ResizeObserver | null = null
 
 // ---------------------------------------------------------------- rendering
-/** WebGL only on the visible tab: Chromium caps live WebGL contexts (~16) per process. */
+/** WebGL only while visible and within budget: Chromium caps live WebGL contexts (~16) per process. */
 function attachWebgl(): void {
   if (webgl) return
   try {
     const addon = new WebglAddon()
     addon.onContextLoss(() => {
       addon.dispose()
-      if (webgl === addon) webgl = null // DOM renderer takes over; re-attached on next activation
+      if (webgl === addon) webgl = null // DOM renderer takes over; re-attached the next time it's shown
     })
     term.loadAddon(addon)
     webgl = addon
@@ -72,8 +81,8 @@ function queueFit(): void {
   fitQueued = true
   requestAnimationFrame(() => {
     fitQueued = false
-    // Hidden tabs have no size; they refit when activated.
-    if (props.active && host.value && host.value.clientWidth > 0) fit.fit()
+    // Hidden panes have no size; they refit when shown again.
+    if (props.visible && host.value && host.value.clientWidth > 0) fit.fit()
   })
 }
 
@@ -81,7 +90,8 @@ function queueFit(): void {
 async function spawn(): Promise<void> {
   exited = false
   try {
-    const r = await window.crt.pty.spawn({ profileId: props.profileId, cols: term.cols, rows: term.rows })
+    const cwd = reportedCwd ?? props.cwd ?? undefined
+    const r = await window.crt.pty.spawn({ profileId: props.profileId, cols: term.cols, rows: term.rows, cwd })
     ptyId = r.id
     kind = r.profile.kind
     emit('spawned', r.profile)
@@ -117,15 +127,58 @@ function sendToShell(data: string): void {
   }
 }
 
+// ---------------------------------------------------------------- working directory
+/**
+ * A path the shell reported, as this OS spells it; null if it's on another machine (OSC 7 over SSH).
+ * Git Bash and WSL report POSIX paths; their /c/… and /mnt/c/… forms map back to drive letters.
+ */
+function nativePath(path: string, host = ''): string | null {
+  const h = host.toLowerCase()
+  if (h && h !== 'localhost' && h !== props.platform.hostname.toLowerCase()) return null
+  if (props.platform.os !== 'win32') return path
+  if (/^\/[a-zA-Z]:([\\/]|$)/.test(path)) return path.slice(1).replace(/\//g, '\\')
+  const re = kind === 'gitbash' ? /^\/([a-zA-Z])(\/.*)?$/ : kind === 'wsl' ? /^\/mnt\/([a-zA-Z])(\/.*)?$/ : null
+  const drive = re?.exec(path)
+  if (drive) return `${drive[1].toUpperCase()}:${(drive[2] ?? '/').replace(/\//g, '\\')}`
+  return path
+}
+
+/** OSC 7: file://host/path (bash/zsh/fish integrations, most prompts). */
+function onOsc7(data: string): boolean {
+  try {
+    const url = new URL(data)
+    if (url.protocol === 'file:') reportedCwd = nativePath(decodeURIComponent(url.pathname), url.hostname) ?? reportedCwd
+  } catch {
+    // Not a URL: ignore it.
+  }
+  return true
+}
+
+/** OSC 9;9: Windows Terminal's "current directory" (PowerShell / cmd prompts). Other OSC 9 uses are left alone. */
+function onOsc9(data: string): boolean {
+  const m = /^9;(.*)$/s.exec(data)
+  if (!m) return false
+  const path = m[1].trim().replace(/^"(.*)"$/s, '$1')
+  if (path) reportedCwd = nativePath(path) ?? reportedCwd
+  return true
+}
+
+/** The shell's working directory: as reported by the shell, else as the OS sees it (Linux), else null. */
+async function currentCwd(): Promise<string | null> {
+  if (reportedCwd) return reportedCwd
+  return ptyId === null ? null : window.crt.pty.cwd(ptyId).catch(() => null)
+}
+
 // ---------------------------------------------------------------- cursor blink
 // Each blink repaints the screen, which keeps the CRT pipeline drawing; so, like many editors, the cursor stops
-// blinking (stays solid) after a while without input or output, and starts again on the next one.
+// blinking (stays solid) after a while without input or output, and starts again on the next one. Only the
+// focused pane blinks, so idle unfocused panes never repaint.
 const BLINK_REST_MS = 15_000
 let blinkTimer: ReturnType<typeof setTimeout> | undefined
 
 function nudgeBlink(): void {
   clearTimeout(blinkTimer)
-  if (!props.settings.cursorBlink) return
+  if (!props.settings.cursorBlink || !props.focused) return
   if (!term.options.cursorBlink) term.options.cursorBlink = true
   blinkTimer = setTimeout(() => (term.options.cursorBlink = false), BLINK_REST_MS)
 }
@@ -239,7 +292,7 @@ function applyOptions(): void {
   term.options.lineHeight = s.lineHeight
   term.options.scrollback = s.scrollback
   term.options.cursorStyle = s.cursorStyle
-  term.options.cursorBlink = s.cursorBlink
+  term.options.cursorBlink = s.cursorBlink && props.focused
   nudgeBlink()
   term.options.theme = terminalTheme(s)
   queueFit()
@@ -263,7 +316,7 @@ onMounted(async () => {
     lineHeight: props.settings.lineHeight,
     scrollback: props.settings.scrollback,
     cursorStyle: props.settings.cursorStyle,
-    cursorBlink: props.settings.cursorBlink,
+    cursorBlink: props.settings.cursorBlink && props.focused,
     cursorInactiveStyle: 'outline',
     theme: terminalTheme(props.settings),
     allowProposedApi: true,
@@ -283,11 +336,12 @@ onMounted(async () => {
   term.loadAddon(new ClipboardAddon(undefined, osc52))
 
   term.attachCustomKeyEventHandler(onKey)
+  disposables.push(term.parser.registerOscHandler(7, onOsc7), term.parser.registerOscHandler(9, onOsc9))
   // Ctrl+wheel is zoom (handled by the window), not scroll.
   term.attachCustomWheelEventHandler((e) => !e.ctrlKey)
   term.open(host.value!)
   nudgeBlink()
-  if (props.active) attachWebgl()
+  if (props.visible && props.webgl) attachWebgl()
   fit.fit()
 
   disposables.push(
@@ -306,7 +360,7 @@ onMounted(async () => {
   ro.observe(host.value!)
 
   await spawn()
-  if (props.active) term.focus()
+  if (props.focused) term.focus()
 })
 
 onBeforeUnmount(() => {
@@ -318,16 +372,37 @@ onBeforeUnmount(() => {
   term?.dispose()
 })
 
+// Contexts are released right away but taken only after a tick, so on a tab switch the old tab's panes
+// free theirs before the new tab's panes claim theirs.
 watch(
-  () => props.active,
-  async (active) => {
+  () => props.visible && props.webgl,
+  async (gpu) => {
     if (!term) return
-    if (active) {
-      attachWebgl()
-      await nextTick()
-      queueFit()
-      term.focus()
-    } else detachWebgl()
+    if (!gpu) return detachWebgl()
+    await nextTick()
+    if (props.visible && props.webgl) attachWebgl()
+  }
+)
+watch(
+  () => props.visible,
+  async (visible) => {
+    if (!term || !visible) return
+    await nextTick()
+    queueFit()
+  }
+)
+watch(
+  () => props.focused,
+  async (focused) => {
+    if (!term) return
+    if (!focused) {
+      clearTimeout(blinkTimer)
+      term.options.cursorBlink = false
+      return
+    }
+    nudgeBlink()
+    await nextTick()
+    if (props.focused) term.focus()
   }
 )
 watch(
@@ -365,7 +440,18 @@ defineExpose({
   kind: () => kind,
   pastePaths,
   /** Text typed in the webgl host window, delivered as if typed here. */
-  input: (text: string) => term?.input(text, true)
+  input: (text: string) => term?.input(text, true),
+  /** Where a pane split from this one should start. */
+  cwd: currentCwd,
+  /** One character cell in CSS pixels (for the minimum pane size). */
+  cellSize(): { width: number; height: number } {
+    const screen = host.value?.querySelector<HTMLElement>('.xterm-screen')
+    if (term && screen && screen.clientWidth > 0 && term.cols > 0) {
+      return { width: screen.clientWidth / term.cols, height: screen.clientHeight / term.rows }
+    }
+    const size = fontSize()
+    return { width: size * 0.6, height: size * props.settings.lineHeight * 1.2 }
+  }
 })
 </script>
 

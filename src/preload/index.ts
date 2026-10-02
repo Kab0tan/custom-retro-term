@@ -19,6 +19,8 @@ const api = {
     /** Tell main how many characters xterm has finished parsing (flow control). */
     ack: (id: number, chars: number): void => ipcRenderer.send('pty:ack', id, chars),
     kill: (id: number): void => ipcRenderer.send('pty:kill', id),
+    /** The shell's working directory as the OS sees it (Linux only; null elsewhere). */
+    cwd: (id: number): Promise<string | null> => ipcRenderer.invoke('pty:cwd', id),
     onData: (cb: (id: number, data: string) => void) => listen<[number, string]>('pty:data', cb),
     onExit: (cb: (id: number, code: number) => void) => listen<[number, number]>('pty:exit', cb)
   },
@@ -44,7 +46,8 @@ const api = {
   window: {
     newWindow: (): void => ipcRenderer.send('window:new'),
     close: (): void => ipcRenderer.send('window:close'),
-    setTabCount: (n: number): void => ipcRenderer.send('window:tabCount', n),
+    /** Shells open in the window (panes across all tabs), for the close confirmation. */
+    setShellCount: (n: number): void => ipcRenderer.send('window:shellCount', n),
     toggleFullscreen: (): void => ipcRenderer.send('window:toggleFullscreen'),
     toggleDevTools: (): void => ipcRenderer.send('window:toggleDevTools'),
     minimize: (): void => ipcRenderer.send('window:minimize'),

@@ -19,7 +19,9 @@ Windows, macOS and Linux · Electron + Vue + xterm.js + node-pty · WebGL CRT pi
 - **A real terminal**: xterm.js with GPU text rendering, tabs, search, zoom, clickable links, Unicode 11, and shell
   profiles detected for your OS (PowerShell 7, Windows PowerShell, cmd, Git Bash and WSL on Windows; your login
   shell plus bash, zsh, fish… on macOS and Linux).
-- **Panels next to the shell**: split, move and resize panels, and save layouts.
+- **Panels next to the shell**: split, move and resize panels, and save layouts. Inside the shell panel, split a
+  tab into several shells (panes, like tmux or Windows Terminal), then move between them, resize, zoom and close
+  them from the keyboard.
 - **Bundled panels**: System (CPU, memory, network), Kernel log, Spectrum (system audio), Device map.
 - **Plugins**: a manifest and one ES module, sandboxed, hot reload, no build step.
 - **Installers** for Windows, macOS and Linux, with auto-updates from GitHub Releases.
@@ -51,9 +53,12 @@ stay with your shell.
 | Action | Windows / Linux | macOS |
 |---|---|---|
 | New tab / new tab with profile 1–9 | Ctrl+Shift+T / Ctrl+Shift+1…9 | ⌘T / ⌘⇧1…9 |
-| Close tab | Ctrl+Shift+W | ⌘W |
+| Close pane (the last pane closes its tab) | Ctrl+Shift+W | ⌘W |
 | Next / previous tab | Ctrl+Tab / Ctrl+Shift+Tab | ⌘⇧] / ⌘⇧[ (or Ctrl+Tab) |
 | New window | Ctrl+Shift+N | ⌘N |
+| Split pane right / down | Ctrl+Shift+D / Ctrl+Shift+S | ⌘D / ⌘⇧D |
+| Zoom pane (fill the tab, again to restore) | Ctrl+Shift+Z | ⌘⇧Enter |
+| Pane prefix (then one of the keys below) | Ctrl+Shift+Space | ⌘⇧Space |
 | Copy / paste | Ctrl+Shift+C / Ctrl+Shift+V (Ctrl+C / Ctrl+V optional in Settings) | ⌘C / ⌘V |
 | Find | Ctrl+Shift+F | ⌘F |
 | Zoom in / out / reset | Ctrl+= / Ctrl+- / Ctrl+0 | ⌘= / ⌘- / ⌘0 |
@@ -62,6 +67,23 @@ stay with your shell.
 | Full screen | F11 | ⌘⌃F |
 | Scroll by page | Shift+PageUp / Shift+PageDown | Shift+PageUp / Shift+PageDown |
 | CRT stats overlay (WebGL renderer) | Ctrl+Shift+F10 | Ctrl+Shift+F10 |
+
+After the pane prefix (tmux keys; a `PANE ▸` hint shows while it waits, Esc or 1.5 s cancels it):
+
+| Key | Action |
+|---|---|
+| ← → ↑ ↓ | Move to the pane on that side |
+| Shift+← → ↑ ↓ | Resize the pane (keep pressing to go on) |
+| `%` / `"` | Split right / down |
+| `z` | Zoom pane |
+| `x` | Close pane |
+| `o` | Next pane |
+| `{` / `}` | Swap with the previous / next pane |
+| `E` | Spread panes evenly |
+
+You can also click a pane to focus it and drag the line between two panes to resize them. A new pane starts with
+the profile of the pane it was split from, in the same folder when the shell reports it (OSC 7 or Windows Terminal's
+OSC 9;9; on Linux it's read from the process). Panes are not saved: like tabs, they close with the window.
 
 ### Where your files are
 
