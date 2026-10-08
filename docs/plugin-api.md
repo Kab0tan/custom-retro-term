@@ -98,7 +98,7 @@ with the shell, so plugins are display panels.
 | `cpu` | 1 s | `{ cores: number[], total, model }` (busy 0..1) |
 | `memory` | 2 s | `{ totalBytes, usedBytes }` |
 | `network` | 1 s | `{ available: true, rxBytesPerSec, txBytesPerSec, interfaces[] }` or `{ available: false, reason }` |
-| `temperature` | 5 s (30 s on Windows) | `{ available: true, zones: [{ name, celsius }] }` or `{ available: false, reason }` |
+| `temperature` | 5 s (30 s on Windows) | `{ available: true, zones: [{ name, celsius, cpu }] }` (best sensor first; `cpu`: it's the CPU's own sensor, Linux only) or `{ available: false, reason }` |
 | `log` | as it comes | `{ entries: [{ time, level, source, message }], reset? }` (system/kernel log) |
 | `connections` | 2 s | `{ available: true, connections: [{ remoteAddress, remotePort, localPort }] }` |
 | `devices` | 5-10 s (30 s on Windows) | `{ available: true, host: { name, os, cores, memoryBytes }, devices: [{ id, name, bus, port, kind, connected, battery?, detail? }] }` (USB, paired Bluetooth, displays, network links) |

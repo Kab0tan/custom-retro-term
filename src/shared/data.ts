@@ -3,6 +3,8 @@
  * A panel subscribes to a topic and receives its payload at the topic's rate; collectors
  * run only while some visible panel is subscribed.
  */
+import type { TemperatureZone } from './thermal'
+
 export type DataTopic = 'cpu' | 'memory' | 'network' | 'temperature' | 'log' | 'connections' | 'devices'
 
 export const DATA_TOPICS: readonly DataTopic[] = ['cpu', 'memory', 'network', 'temperature', 'log', 'connections', 'devices']
@@ -32,11 +34,12 @@ export type NetworkPayload =
   | { available: false; reason: string }
 
 /**
- * Windows exposes CPU die temperature only to admin tools; what's readable without admin
- * is ACPI thermal zones (often the motherboard, sometimes a fixed value), or nothing.
+ * Best sensor first. Linux ranks the CPU's own sensors first (shared/thermal.ts); `cpu` says whether zones[0] really is
+ * one. Windows exposes CPU die temperature only to admin tools; what's readable without admin is ACPI thermal zones
+ * (often the motherboard, sometimes a fixed value), or nothing, so its zones are never `cpu`.
  */
 export type TemperaturePayload =
-  | { available: true; zones: Array<{ name: string; celsius: number }> }
+  | { available: true; zones: TemperatureZone[] }
   | { available: false; reason: string }
 
 export type LogLevel = 'critical' | 'error' | 'warning' | 'info'

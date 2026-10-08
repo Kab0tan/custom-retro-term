@@ -96,7 +96,7 @@ and notarizes. With none set, builds are unsigned but work: on macOS use right-c
 | CRT frames | GPU shared texture (D3D) | GPU shared texture (IOSurface) | CPU copy (set `CRT_TRANSPORT=shared` to try the GPU path) |
 | Network / connections | .NET via one PowerShell process | `netstat` | `/proc/net` |
 | Devices | PnP devices, Bluetooth properties, monitor connectors (same PowerShell process) | `system_profiler`, `networksetup` | `/sys/bus/usb`, `bluetoothctl`, `/sys/class/net` |
-| Temperature | ACPI thermal zones (often N/A without admin) | N/A (not exposed to apps) | `/sys/class/thermal` |
+| Temperature | ACPI thermal zones (often N/A without admin) | N/A (not exposed to apps) | CPU sensor first: `x86_pkg_temp`, hwmon `coretemp`/`k10temp`, `TCPU`, ARM `cpu`/`soc` zones; else `acpitz` |
 | Kernel log | Windows System event log | `log stream` (kernel) | `journalctl -k` (needs the `systemd-journal`/`adm` group, else a note in the log) |
 | System audio (spectrum) | Loopback capture | Not yet (panels say so) | Not yet (panels say so) |
 | Settings / plugins | `%APPDATA%\crt-terminal` | `~/Library/Application Support/crt-terminal` | `~/.config/crt-terminal` |

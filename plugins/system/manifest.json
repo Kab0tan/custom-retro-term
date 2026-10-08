@@ -1,7 +1,7 @@
 {
   "id": "system",
   "name": "System stats",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "apiVersion": 1,
   "description": "SYSMON: a bar per CPU core, memory, network throughput and temperature, live.",
   "entry": "index.js",

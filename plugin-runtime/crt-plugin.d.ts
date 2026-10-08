@@ -55,7 +55,8 @@ export interface MemoryData {
 export type NetworkData =
   | { available: true; rxBytesPerSec: number; txBytesPerSec: number; interfaces: Array<{ name: string; rxBytesPerSec: number; txBytesPerSec: number }> }
   | { available: false; reason: string }
-export type TemperatureData = { available: true; zones: Array<{ name: string; celsius: number }> } | { available: false; reason: string }
+/** Best sensor first; `cpu` is true when the reading comes from a CPU sensor (Linux only), not a board or device one. */
+export type TemperatureData = { available: true; zones: Array<{ name: string; celsius: number; cpu: boolean }> } | { available: false; reason: string }
 export interface LogData {
   entries: Array<{ time: number; level: 'critical' | 'error' | 'warning' | 'info'; source: string; message: string }>
   /** Replace what you have instead of appending. */

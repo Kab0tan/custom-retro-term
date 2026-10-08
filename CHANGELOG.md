@@ -26,6 +26,10 @@ All notable changes to this project are listed here. The format follows
 
 ### Fixed
 
+- System panel on Linux: the temperature now comes from the CPU (`x86_pkg_temp`, hwmon `coretemp` / `k10temp`, `TCPU`,
+  ARM `cpu`/`soc` zones) instead of whichever thermal zone was listed first, often the `acpitz` board sensor that can
+  read 30 °C lower. It says CORE TEMP only when the sensor really is the CPU, and its tooltip names the sensor. The
+  `temperature` topic lists the best sensor first and flags it with `cpu`.
 - Resizing two neighbouring panels that were together smaller than the minimum size could give one of them a
   negative size.
 

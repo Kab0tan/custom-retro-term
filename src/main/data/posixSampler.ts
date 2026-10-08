@@ -3,11 +3,12 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { DataSampler, SamplerJob, SamplerMessage } from './sampler'
 import { readPosixDevices } from './posixDevices'
+import { CPU_HWMON_CHIPS, hwmonLabelRank, rankThermal, type TemperatureZone, type ThermalReading } from '@shared/thermal'
 
 /**
  * macOS / Linux counterpart of the PowerShell sampler: same jobs, same messages.
  * - net:    Linux /proc/net/dev; macOS `netstat -ibn`
- * - temp:   Linux /sys/class/thermal; macOS: not available without extra tools
+ * - temp:   Linux /sys/class/thermal + CPU hwmon chips, CPU sensor first; macOS: not available without extra tools
  * - events: Linux `journalctl -k -f` (kernel log); macOS `log stream` (kernel process)
  * - conns:  Linux /proc/net/tcp{,6}; macOS `netstat -anp tcp`
  * - devices: see posixDevices.ts
@@ -40,20 +41,48 @@ async function readCounters(): Promise<Map<string, [number, number]>> {
 }
 
 // ------------------------------------------------------------------ temperature
-function readThermal(): Array<{ name: string; celsius: number }> {
-  if (IS_MAC || !existsSync('/sys/class/thermal')) return []
-  const zones: Array<{ name: string; celsius: number }> = []
-  for (const d of readdirSync('/sys/class/thermal')) {
-    if (!d.startsWith('thermal_zone')) continue
+const readText = (path: string): string => readFileSync(path, 'utf8').trim()
+const toCelsius = (milli: number): number => Math.round(milli / 100) / 10
+const dirIndex = (name: string, prefix: string): number => parseInt(name.slice(prefix.length), 10) || 0
+
+/** Thermal zones, plus the package/die input of each CPU hwmon chip; CPU sensors first (see shared/thermal.ts). */
+function readThermal(): TemperatureZone[] {
+  if (IS_MAC) return []
+  const readings: ThermalReading[] = []
+  const list = (dir: string, prefix: string): string[] =>
+    existsSync(dir) ? readdirSync(dir).filter((d) => d.startsWith(prefix)) : []
+
+  for (const d of list('/sys/class/thermal', 'thermal_zone')) {
     try {
-      const milli = Number(readFileSync(join('/sys/class/thermal', d, 'temp'), 'utf8'))
-      const type = readFileSync(join('/sys/class/thermal', d, 'type'), 'utf8').trim()
-      if (milli > 0) zones.push({ name: type || d, celsius: Math.round(milli / 100) / 10 })
+      const milli = Number(readText(join('/sys/class/thermal', d, 'temp')))
+      const type = readText(join('/sys/class/thermal', d, 'type'))
+      if (milli > 0) readings.push({ name: type || d, celsius: toCelsius(milli), source: 'zone', index: dirIndex(d, 'thermal_zone') })
     } catch {
       // Unreadable zone; skip.
     }
   }
-  return zones
+
+  for (const d of list('/sys/class/hwmon', 'hwmon')) {
+    try {
+      const dir = join('/sys/class/hwmon', d)
+      const chip = readText(join(dir, 'name'))
+      if (!CPU_HWMON_CHIPS.includes(chip)) continue
+      let best: { label: string; milli: number; rank: number } | undefined
+      const inputs = readdirSync(dir).filter((f) => /^temp\d+_input$/.test(f))
+      inputs.sort((a, b) => dirIndex(a, 'temp') - dirIndex(b, 'temp'))
+      for (const f of inputs) {
+        const labelFile = join(dir, f.replace('_input', '_label'))
+        const label = existsSync(labelFile) ? readText(labelFile) : f.replace('_input', '')
+        const milli = Number(readText(join(dir, f)))
+        const rank = hwmonLabelRank(label)
+        if (milli > 0 && (!best || rank < best.rank)) best = { label, milli, rank }
+      }
+      if (best) readings.push({ name: `${chip} ${best.label}`, celsius: toCelsius(best.milli), source: 'hwmon', index: dirIndex(d, 'hwmon') })
+    } catch {
+      // Unreadable chip; skip.
+    }
+  }
+  return rankThermal(readings)
 }
 
 // ------------------------------------------------------------------ connections

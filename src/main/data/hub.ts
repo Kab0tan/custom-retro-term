@@ -122,9 +122,11 @@ function onSample(m: SamplerMessage): void {
     }
     publish('network', payload)
   } else if (m.t === 'temp') {
-    const zones = ((m.zones as Array<{ name: string; celsius: number }>) ?? []).filter((z) => Number.isFinite(z.celsius))
+    const zones = ((m.zones as Array<{ name: string; celsius: number; cpu?: boolean }>) ?? []).filter((z) =>
+      Number.isFinite(z.celsius)
+    )
     const payload: TemperaturePayload = zones.length
-      ? { available: true, zones: zones.map((z) => ({ name: String(z.name), celsius: Number(z.celsius) })) }
+      ? { available: true, zones: zones.map((z) => ({ name: String(z.name), celsius: Number(z.celsius), cpu: z.cpu === true })) }
       : { available: false, reason: NO_TEMPERATURE[process.platform] ?? 'No temperature sensor found.' }
     publish('temperature', payload)
   } else if (m.t === 'events') {

@@ -84,7 +84,7 @@ export function mount(ctx) {
   add(root, 'rule')
   const stats = add(root, 'stats')
   const load = stat(stats, 'CPU LOAD')
-  const temp = stat(stats, 'CORE TEMP')
+  const temp = stat(stats, 'TEMP')
   const up = stat(stats, 'NET ▲')
   const down = stat(stats, 'NET ▼')
   ctx.el.appendChild(root)
@@ -131,11 +131,15 @@ export function mount(ctx) {
 
   // ------------------------------------------------------------ temperature
   ctx.subscribe('temperature', (t) => {
-    const v = temp.lastChild
+    // zones[0] is the best sensor; say "CORE" only when it really is the CPU's.
+    const [label, v] = [temp.firstChild, temp.lastChild]
     if (t.available) {
-      v.textContent = `${t.zones[0].celsius.toFixed(0)} °C`
-      temp.title = `ACPI thermal zone ${t.zones[0].name} (not the CPU die)`
+      const z = t.zones[0]
+      label.textContent = z.cpu ? 'CORE TEMP' : 'TEMP'
+      v.textContent = `${z.celsius.toFixed(0)} °C`
+      temp.title = z.cpu ? `CPU sensor: ${z.name}` : `Sensor: ${z.name} (not the CPU die)`
     } else {
+      label.textContent = 'TEMP'
       v.textContent = 'N/A'
       temp.title = t.reason
     }
