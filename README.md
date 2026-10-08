@@ -35,7 +35,13 @@ page:
 |---|---|---|
 | Windows 10/11 | `CRT Terminal-Setup-<version>.exe` | Unsigned builds show a SmartScreen warning: *More info → Run anyway*. |
 | macOS | `CRT Terminal-<version>-<arch>.dmg` | Unsigned builds: right-click the app → *Open* the first time. |
-| Linux | `.AppImage` or `.deb` | `chmod +x` the AppImage before running it. |
+| Linux | `.AppImage` or `.deb` | `chmod +x` the AppImage before running it. The `.deb` adds the APT repository, so apt keeps it updated. |
+
+On Debian or Ubuntu, one command installs it and lets `sudo apt upgrade` keep it up to date:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Kab0tan/custom-retro-term/main/scripts/install-linux.sh | sudo sh
+```
 
 Or build an installer yourself: `npm ci && npm run dist` (see the [packaging guide](docs/packaging.md)).
 

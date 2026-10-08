@@ -23,7 +23,56 @@ electron-updater reads GitHub Releases. To turn it on:
 
 Installed builds then check at startup and every 6 hours, download in the background, and ask before restarting
 (otherwise the update installs when you quit). Settings → Updates: version, status, *Check now*, and an on/off switch.
-Until the owner is set, the app skips update checks and says so.
+Until the owner is set, the app skips update checks and says so. A `.deb` install registered with the APT repository
+(below) leaves updates to apt instead.
+
+## APT repository
+
+Debian and Ubuntu users install and update through apt:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Kab0tan/custom-retro-term/main/scripts/install-linux.sh | sudo sh
+```
+
+Afterwards `sudo apt install crt-terminal` works, and `sudo apt upgrade` (or the system's update notifier) brings new
+versions. Downloading the `.deb` from Releases and opening it does the same: its install script registers the
+repository, the way the VS Code and Chrome packages do.
+
+**How it works.** No server needed: GitHub Releases *is* the repository. Each release carries the `.deb` plus `Packages`,
+`Release`, `InRelease` (signed) and the public key, and apt reads them from
+`https://github.com/<owner>/<repo>/releases/latest/download/`, which GitHub redirects to the newest release. So:
+- apt always sees the latest **published** release only. Drafts and pre-releases are invisible until you publish them.
+- Older versions stay downloadable from their release page, but apt can't downgrade to them.
+- The repository must be **public**: apt doesn't authenticate to GitHub.
+
+| Piece | What it does |
+|---|---|
+| [scripts/apt-repo.sh](../scripts/apt-repo.sh) | `package-files`: public key + `crt-terminal.sources` that ship in the `.deb` (`resources/apt`). `index`: builds and signs the repository metadata. |
+| [build/linux/after-install.tpl](../build/linux/after-install.tpl) | The `.deb` install script: electron-builder's default, plus copying the key to `/usr/share/keyrings/` and the source entry to `/etc/apt/sources.list.d/` (only if missing). |
+| [build/linux/after-remove.tpl](../build/linux/after-remove.tpl) | Default removal script, plus removing both files on `apt purge`. |
+| [scripts/install-linux.sh](../scripts/install-linux.sh) | The one-line installer above. |
+| [release.yml](../.github/workflows/release.yml) | Generates the `.deb`'s files before packaging; the `apt` job signs the metadata and uploads it to the release. |
+
+**Setup, once.** Create a signing key with no passphrase (the GitHub secret store protects it), and store its private half
+as the repository secret `APT_SIGNING_KEY`:
+
+```bash
+gpg --batch --passphrase '' --quick-gen-key "CRT Terminal APT <you@example.com>" ed25519 sign never
+gpg --armor --export-secret-keys "CRT Terminal APT" > apt-signing-key.asc
+```
+
+Paste the file's contents into *Settings → Secrets and variables → Actions → New repository secret*, then delete the file
+and keep a backup of the key somewhere safe. If the key has a passphrase, also add it as `APT_SIGNING_KEY_PASSPHRASE`. Without
+the secret, releases still build: the `.deb` just doesn't register the repository, and the app updates itself as before.
+
+**Rotating the key** breaks `apt update` for existing users: they still have the old key and must rerun the install
+command (or reinstall the `.deb`), which fetches the new one. Give the key no expiry and rotate only if it leaks.
+
+**Opting out.** Put `ADD_APT_REPO=false` in `/etc/default/crt-terminal` before installing the `.deb`, or set
+`Enabled: no` in `/etc/apt/sources.list.d/crt-terminal.sources` (later installs keep that file as it is).
+
+**Forks.** The source entry uses `GITHUB_REPOSITORY`, so it points at the fork automatically. For the one-line installer,
+set `CRT_TERMINAL_REPO=owner/repo`.
 
 ## Code signing (optional)
 
@@ -31,7 +80,7 @@ Until the owner is set, the app skips update checks and says so.
 |---|---|---|
 | Windows | An OV/EV code-signing certificate (.pfx), or Azure Trusted Signing. Unsigned installers trigger SmartScreen until they build reputation. | `WIN_CSC_LINK`, `WIN_CSC_KEY_PASSWORD` |
 | macOS | Apple Developer ID Application certificate + notarization (Gatekeeper blocks unsigned apps downloaded from the web) | `MAC_CSC_LINK`, `MAC_CSC_KEY_PASSWORD`, `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID` |
-| Linux | Not required | — |
+| Linux | Not required for the AppImage and `.deb`; the APT repository needs a GPG key ([above](#apt-repository)) | `APT_SIGNING_KEY`, `APT_SIGNING_KEY_PASSPHRASE` (optional) |
 
 With the macOS secrets set, electron-builder signs with the hardened runtime ([build/entitlements.mac.plist](../build/entitlements.mac.plist))
 and notarizes. With none set, builds are unsigned but work: on macOS use right-click → Open the first time.
@@ -66,3 +115,6 @@ Run on each of Windows 10/11, macOS (Apple silicon and Intel if possible) and on
 - [ ] Plugins folder is created in the OS's app-data location; bundled plugins appear
 - [ ] Uninstall removes the app (settings and plugins stay in app data)
 - [ ] (With a published release) an older install offers the update and restarts into the new version
+- [ ] (Ubuntu/Debian, with a published release) the one-line installer installs the app; `apt policy crt-terminal` lists
+  the GitHub repository; after the next release `sudo apt update && sudo apt upgrade` updates it; Settings → Updates says
+  updates come from apt; `sudo apt purge crt-terminal` removes `/etc/apt/sources.list.d/crt-terminal.sources`

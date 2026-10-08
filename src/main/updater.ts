@@ -6,13 +6,24 @@ import { getSettings } from './settings'
 
 /**
  * Auto-updates from GitHub Releases (electron-updater). Installed builds only, when the build has
- * a real publish target (electron-builder.yml → publish) and the user hasn't turned it off.
+ * a real publish target (electron-builder.yml → publish) and the user hasn't turned it off. A .deb
+ * install registered with the APT repository is left to apt.
  * Updates download in the background; the user chooses when to restart.
  */
 const CHECK_EVERY_MS = 6 * 60 * 60 * 1000
 
+/** Written by the .deb's install script (build/linux/after-install.tpl); see docs/packaging.md#apt-repository. */
+const APT_SOURCE = '/etc/apt/sources.list.d/crt-terminal.sources'
+
+/** A .deb install whose APT repository is registered: apt updates it, so the app doesn't. */
+function aptManaged(): boolean {
+  if (process.platform !== 'linux' || !existsSync(APT_SOURCE)) return false
+  const file = join(process.resourcesPath, 'package-type')
+  return existsSync(file) && readFileSync(file, 'utf8').trim() === 'deb'
+}
+
 function configured(): boolean {
-  if (!app.isPackaged) return false
+  if (!app.isPackaged || aptManaged()) return false
   const file = join(process.resourcesPath, 'app-update.yml')
   return existsSync(file) && !readFileSync(file, 'utf8').includes('YOUR_GITHUB_USER')
 }
@@ -35,7 +46,11 @@ export function initUpdater(): void {
     return { version: app.getVersion(), status, enabled: true }
   })
   if (!configured()) {
-    status = app.isPackaged ? 'Auto-update is not configured for this build.' : status
+    if (app.isPackaged) {
+      status = aptManaged()
+        ? 'Updates come from apt: sudo apt update && sudo apt upgrade.'
+        : 'Auto-update is not configured for this build.'
+    }
     return
   }
   status = 'Up to date.'

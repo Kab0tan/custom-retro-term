@@ -13,6 +13,9 @@ All notable changes to this project are listed here. The format follows
   or nudged with the arrow keys. Up to 8 panes per tab.
 - A new pane starts in the same folder as the pane it was split from, when the shell reports it (OSC 7, OSC 9;9) or,
   on Linux, from the process.
+- APT repository for Debian and Ubuntu, served from GitHub Releases: install with one command
+  (`curl -fsSL …/scripts/install-linux.sh | sudo sh`) and update with `sudo apt upgrade`. The `.deb` registers the
+  repository when installed, and the app then leaves updates to apt.
 
 ### Changed
 

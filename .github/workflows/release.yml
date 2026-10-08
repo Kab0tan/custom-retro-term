@@ -1,5 +1,5 @@
 # Builds installers on all three operating systems. Push a tag like v0.1.0 to publish a GitHub Release
-# (which is also what auto-update reads); run it manually to just get the installers as artifacts.
+# (which is also what auto-update and the APT repository read); run it manually to just get the installers as artifacts.
 name: release
 
 on:
@@ -17,6 +17,9 @@ jobs:
       matrix:
         os: [windows-latest, macos-latest, ubuntu-latest]
     runs-on: ${{ matrix.os }}
+    env:
+      # Only whether the secret exists: the key itself goes to the one step that needs it, not to npm's install scripts.
+      HAS_APT_KEY: ${{ secrets.APT_SIGNING_KEY != '' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -33,6 +36,15 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npx electron-vite build
+
+      # The .deb ships the APT signing key and repository entry; its install script registers them so `apt upgrade`
+      # updates the app. Skipped (the .deb just doesn't register anything) without the APT_SIGNING_KEY secret.
+      - name: APT repository files for the .deb
+        if: runner.os == 'Linux' && env.HAS_APT_KEY == 'true'
+        env:
+          APT_SIGNING_KEY: ${{ secrets.APT_SIGNING_KEY }}
+          APT_SIGNING_KEY_PASSPHRASE: ${{ secrets.APT_SIGNING_KEY_PASSPHRASE }}
+        run: bash scripts/apt-repo.sh package-files build/apt
 
       - name: Package
         shell: bash
@@ -62,3 +74,37 @@ jobs:
             dist/*.deb
             dist/latest*.yml
           if-no-files-found: ignore
+
+  # Turns the release into a signed APT repository: apt reads it at .../releases/latest/download/
+  # (docs/packaging.md#apt-repository). Needs the APT_SIGNING_KEY secret; without it, this job does nothing.
+  apt:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    env:
+      HAS_APT_KEY: ${{ secrets.APT_SIGNING_KEY != '' }}
+    steps:
+      - uses: actions/checkout@v4
+        if: env.HAS_APT_KEY == 'true'
+
+      - uses: actions/download-artifact@v4
+        if: env.HAS_APT_KEY == 'true'
+        with:
+          name: installers-ubuntu-latest
+          path: installers
+
+      - name: Build and sign the repository
+        if: env.HAS_APT_KEY == 'true'
+        env:
+          APT_SIGNING_KEY: ${{ secrets.APT_SIGNING_KEY }}
+          APT_SIGNING_KEY_PASSPHRASE: ${{ secrets.APT_SIGNING_KEY_PASSPHRASE }}
+        run: |
+          command -v apt-ftparchive >/dev/null || sudo apt-get install -y --no-install-recommends apt-utils
+          bash scripts/apt-repo.sh index installers apt-repo
+
+      # electron-builder created the release (a draft until you publish it); add the repository files to it.
+      - name: Upload to the release
+        if: env.HAS_APT_KEY == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "$GITHUB_REF_NAME" apt-repo/* --clobber --repo "$GITHUB_REPOSITORY"
