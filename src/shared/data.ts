@@ -21,6 +21,8 @@ export interface CpuPayload {
 export interface MemoryPayload {
   totalBytes: number
   usedBytes: number
+  /** Swap (the page file on Windows); absent when the system has none or it can't be read. */
+  swap?: { totalBytes: number; usedBytes: number }
 }
 
 export interface NetworkInterfaceRate {

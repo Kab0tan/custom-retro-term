@@ -1,3 +1,4 @@
+import { execFile } from 'node:child_process'
 import os from 'node:os'
 import { ipcMain, type WebContents } from 'electron'
 import {
@@ -70,14 +71,41 @@ function startCpu(): Stop {
   return () => clearInterval(timer)
 }
 
+/**
+ * Swap, where each OS has it: Linux /proc/meminfo (via Electron), macOS `sysctl vm.swapusage` (every 10 s), Windows the
+ * page files, from the sampler's 'swap' job (Electron's Windows figures are the commit limit, not the page file).
+ */
+let swap: MemoryPayload['swap']
+
+/** `vm.swapusage`: "total = 2048.00M  used = 1162.75M  free = 885.25M  (encrypted)". */
+function parseSwapUsage(out: string): MemoryPayload['swap'] {
+  const size = (re: RegExp): number => {
+    const m = re.exec(out)
+    return m ? Number(m[1]) * 1024 ** ' KMGT'.indexOf(m[2]) : 0
+  }
+  return { totalBytes: size(/total = ([\d.]+)([KMGT])/), usedBytes: size(/used = ([\d.]+)([KMGT])/) }
+}
+
 function startMemory(): Stop {
+  let ticks = 0
   const tick = (): void => {
+    if (process.platform === 'linux') {
+      const { swapTotal, swapFree } = process.getSystemMemoryInfo()
+      swap = { totalBytes: swapTotal * 1024, usedBytes: (swapTotal - swapFree) * 1024 }
+    } else if (process.platform === 'darwin' && ticks++ % 5 === 0) {
+      execFile('sysctl', ['-n', 'vm.swapusage'], { timeout: 2000 }, (err, out) => (swap = err ? undefined : parseSwapUsage(out)))
+    }
     const totalBytes = os.totalmem()
-    publish<'memory'>('memory', { totalBytes, usedBytes: totalBytes - os.freemem() } satisfies MemoryPayload)
+    const payload: MemoryPayload = { totalBytes, usedBytes: totalBytes - os.freemem() }
+    if (swap && swap.totalBytes > 0) payload.swap = swap
+    publish<'memory'>('memory', payload)
   }
   tick()
   const timer = setInterval(tick, 2000)
-  return () => clearInterval(timer)
+  return () => {
+    clearInterval(timer)
+    swap = undefined
+  }
 }
 
 // Log entries are batched so a burst of events is one message.
@@ -121,6 +149,9 @@ function onSample(m: SamplerMessage): void {
       txBytesPerSec: interfaces.reduce((a, i) => a + i.txBytesPerSec, 0)
     }
     publish('network', payload)
+  } else if (m.t === 'swap') {
+    const mb = 1024 * 1024
+    swap = { totalBytes: (Number(m.totalMB) || 0) * mb, usedBytes: (Number(m.usedMB) || 0) * mb }
   } else if (m.t === 'temp') {
     const zones = ((m.zones as Array<{ name: string; celsius: number; cpu?: boolean }>) ?? []).filter((z) =>
       Number.isFinite(z.celsius)
@@ -156,6 +187,7 @@ function onSample(m: SamplerMessage): void {
     publish('devices', { available: false, reason: `Device scan failed (${String(m.message)}).` })
   } else if (m.t === 'error') {
     const reason = `System data source unavailable (${String(m.message)}).`
+    swap = undefined
     if (running.has('network')) publish('network', { available: false, reason })
     if (running.has('temperature')) publish('temperature', { available: false, reason })
     if (running.has('connections')) publish('connections', { available: false, reason })
@@ -169,6 +201,7 @@ const LOCAL: Partial<Record<DataTopic, () => Stop>> = {
   memory: startMemory
 }
 const SAMPLER_JOBS: Partial<Record<DataTopic, SamplerJob>> = {
+  ...(process.platform === 'win32' && { memory: 'swap' as const }),
   network: 'net',
   temperature: 'temp',
   log: 'events',

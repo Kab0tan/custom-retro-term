@@ -16,6 +16,8 @@ All notable changes to this project are listed here. The format follows
 - APT repository for Debian and Ubuntu, served from GitHub Releases: install with one command
   (`curl -fsSL …/scripts/install-linux.sh | sudo sh`) and update with `sudo apt upgrade`. The `.deb` registers the
   repository when installed, and the app then leaves updates to apt.
+- System panel: a SWAP bar under MEM when the system has swap (the page file on Windows). The `memory` topic carries it
+  as `swap: { totalBytes, usedBytes }`.
 
 ### Changed
 

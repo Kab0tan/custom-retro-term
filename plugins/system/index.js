@@ -81,6 +81,8 @@ export function mount(ctx) {
   const coresRule = add(root, 'rule')
   const memEl = add(root, 'group')
   const mem = barRow(memEl, 'MEM')
+  const swap = barRow(memEl, 'SWAP')
+  swap.row.classList.add('hidden')
   add(root, 'rule')
   const stats = add(root, 'stats')
   const load = stat(stats, 'CPU LOAD')
@@ -114,6 +116,9 @@ export function mount(ctx) {
   // ------------------------------------------------------------ memory
   ctx.subscribe('memory', (m) => {
     mem.set(m.usedBytes / m.totalBytes, `${bytes(m.usedBytes)} / ${bytes(m.totalBytes)}`)
+    // Only when the system has swap (the page file on Windows).
+    swap.row.classList.toggle('hidden', !m.swap)
+    if (m.swap) swap.set(m.swap.usedBytes / m.swap.totalBytes, `Swap: ${bytes(m.swap.usedBytes)} / ${bytes(m.swap.totalBytes)}`)
   })
 
   // ------------------------------------------------------------ network

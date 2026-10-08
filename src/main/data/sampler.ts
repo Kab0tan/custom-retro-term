@@ -2,7 +2,7 @@ import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process'
 import { join } from 'node:path'
 
 /**
- * Windows data Node can't read directly (network counters, thermal zones, the event log, devices) comes
+ * Windows data Node can't read directly (network counters, thermal zones, the event log, devices, page files) comes
  * from one long-lived PowerShell process that prints a JSON line per sample. It starts when a topic
  * that needs it is subscribed and takes job-list changes on stdin, so minimising a window pauses it
  * instead of restarting it; after IDLE_EXIT_MS with nothing to do it exits.
@@ -10,7 +10,7 @@ import { join } from 'node:path'
  * Everything it calls is locale-independent (.NET / CIM class names), because performance
  * counter names are translated on non-English Windows ("Interface réseau", …).
  */
-export type SamplerJob = 'net' | 'temp' | 'events' | 'conns' | 'devices'
+export type SamplerJob = 'net' | 'temp' | 'events' | 'conns' | 'devices' | 'swap'
 
 export interface SamplerMessage {
   t: SamplerJob | 'error'
@@ -204,6 +204,12 @@ while ($true) {
     Emit @{ t = 'conns'; list = $list }
   }
   if (Due 'devices' 30) { Get-Devices }
+  # Page files, in MB. None (paging disabled) gives total 0.
+  if (Due 'swap' 10) {
+    $total = 0; $used = 0
+    foreach ($f in (Get-CimInstance -ClassName Win32_PageFileUsage)) { $total += $f.AllocatedBaseSize; $used += $f.CurrentUsage }
+    Emit @{ t = 'swap'; totalMB = $total; usedMB = $used }
+  }
   # The first run sends the recent backlog; later ones only what's new (also after a pause).
   if (Due 'events' 30) {
     $ev = Get-Events $lastRecord

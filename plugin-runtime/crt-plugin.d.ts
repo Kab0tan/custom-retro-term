@@ -51,6 +51,8 @@ export interface CpuData {
 export interface MemoryData {
   totalBytes: number
   usedBytes: number
+  /** Swap (the page file on Windows); absent when the system has none or it can't be read. */
+  swap?: { totalBytes: number; usedBytes: number }
 }
 export type NetworkData =
   | { available: true; rxBytesPerSec: number; txBytesPerSec: number; interfaces: Array<{ name: string; rxBytesPerSec: number; txBytesPerSec: number }> }

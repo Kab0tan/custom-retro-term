@@ -96,7 +96,7 @@ with the shell, so plugins are display panels.
 | Topic | Rate | Payload |
 |---|---|---|
 | `cpu` | 1 s | `{ cores: number[], total, model }` (busy 0..1) |
-| `memory` | 2 s | `{ totalBytes, usedBytes }` |
+| `memory` | 2 s | `{ totalBytes, usedBytes, swap? }` (`swap: { totalBytes, usedBytes }`, the page file on Windows; absent without swap) |
 | `network` | 1 s | `{ available: true, rxBytesPerSec, txBytesPerSec, interfaces[] }` or `{ available: false, reason }` |
 | `temperature` | 5 s (30 s on Windows) | `{ available: true, zones: [{ name, celsius, cpu }] }` (best sensor first; `cpu`: it's the CPU's own sensor, Linux only) or `{ available: false, reason }` |
 | `log` | as it comes | `{ entries: [{ time, level, source, message }], reset? }` (system/kernel log) |
