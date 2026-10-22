@@ -1,0 +1,26 @@
+{
+  "id": "disk-usage",
+  "name": "Disk usage",
+  "version": "1.0.0",
+  "apiVersion": 1,
+  "description": "Where the space in your home folder goes: a sunburst of the 10 largest folders and what's inside them.",
+  "entry": "index.js",
+  "defaultTitle": "DISK USAGE",
+  "data": [
+    "disk"
+  ],
+  "settings": [
+    {
+      "key": "showInner",
+      "label": "Second ring (inside each folder)",
+      "type": "boolean",
+      "default": true
+    },
+    {
+      "key": "showLegend",
+      "label": "Legend",
+      "type": "boolean",
+      "default": true
+    }
+  ]
+}

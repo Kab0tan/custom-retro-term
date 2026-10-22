@@ -11,7 +11,7 @@
  * Use with JSDoc in plain JS:  /** @param {import('./crt-plugin').PluginContext} ctx *\/
  */
 
-export type DataTopic = 'cpu' | 'memory' | 'network' | 'temperature' | 'log' | 'connections' | 'devices' | 'audio'
+export type DataTopic = 'cpu' | 'memory' | 'network' | 'temperature' | 'log' | 'connections' | 'devices' | 'disk' | 'audio'
 
 export type SettingSpec =
   | { key: string; label: string; type: 'number'; default: number; min: number; max: number; step?: number }
@@ -85,6 +85,26 @@ export interface DeviceInfo {
 export type DevicesData =
   | { available: true; host: { name: string; os: string; cores: number; memoryBytes: number }; devices: DeviceInfo[] }
   | { available: false; reason: string }
+export interface DiskEntry {
+  name: string
+  bytes: number
+  dir: boolean
+  /** The largest entries inside a home-level folder (top 10). */
+  children?: DiskEntry[]
+}
+/** Home-folder usage, two levels, top 10 each. Every ~1.5 s while scanning (partial), then once; rescanned every 10 min. */
+export type DiskData =
+  | {
+      available: true
+      root: string
+      scanning: boolean
+      bytes: number
+      files: number
+      scannedAt: number
+      volume?: { totalBytes: number; freeBytes: number }
+      entries: DiskEntry[]
+    }
+  | { available: false; reason: string }
 /** ~30 updates/s while subscribed. Needs the user's consent: see `requestPermission('audio')`. */
 export type AudioData =
   | { available: true; sampleRate: number; wave: Float32Array; spectrum: Float32Array; minDb: number; maxDb: number }
@@ -98,6 +118,7 @@ export interface DataMap {
   log: LogData
   connections: ConnectionsData
   devices: DevicesData
+  disk: DiskData
   audio: AudioData
 }
 
@@ -144,6 +165,8 @@ export interface PluginContext {
   setSetting(key: string, value: unknown): void
   onTitle(cb: (title: string) => void): Unsubscribe
   subscribe<T extends DataTopic>(topic: T, cb: (data: DataMap[T]) => void): Unsubscribe
+  /** Ask the app to collect a subscribed topic again now. Supported by `disk` (rescan); ignored by other topics. */
+  refresh(topic: DataTopic): void
   /**
    * Frame loop. Capped by the user's plugin frame-rate setting and stopped while the panel is
    * paused (window hidden, or unfocused if the user chose so). `t` and `dt` are in seconds.

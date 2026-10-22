@@ -139,6 +139,11 @@ const ctx = {
       }
     }
   },
+  /** Ask the app to collect a subscribed topic again now (topics that support it: `disk`). */
+  refresh(topic) {
+    if (!manifest.data.includes(topic)) throw new Error(`"${topic}" is not listed in this plugin's manifest "data"`)
+    send({ type: 'refresh', topic })
+  },
   animate(cb) {
     frameCallbacks.add(cb)
     kick()

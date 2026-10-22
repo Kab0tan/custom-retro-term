@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import type { DataTopic } from '@shared/data'
+import { isDataTopic, type DataTopic } from '@shared/data'
 import { coerceSetting, PLUGIN_API_VERSION, resolveSettings, type PluginManifest } from '@shared/plugins'
 import type { Settings } from '@shared/settings'
-import { subscribe as subscribeData } from '../data/bus'
+import { refresh as refreshData, subscribe as subscribeData } from '../data/bus'
 import { useLayout } from '../layout/context'
 import { setSettings } from '../settingsWriter'
 import { subscribeAudio } from './audio'
@@ -154,6 +154,11 @@ async function onMessage(m: PluginManifest, rev: number, msg: { type: string; [k
       subscriptions.get(String(msg.topic))?.()
       subscriptions.delete(String(msg.topic))
       break
+    case 'refresh': {
+      const topic = String(msg.topic)
+      if (subscriptions.has(topic) && isDataTopic(topic)) refreshData(topic)
+      break
+    }
     case 'setSetting': {
       const spec = m.settings.find((s) => s.key === msg.key)
       if (!spec) return

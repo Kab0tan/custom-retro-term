@@ -3,6 +3,14 @@
 All notable changes to this project are listed here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- Disk usage panel: a Baobab-style sunburst of the home folder, the 10 largest folders and what's inside them, with a
+  ranked legend, free space and a ↻ button to rescan. Plugins get it from the new `disk` topic.
+- Plugin API: `ctx.refresh(topic)` asks the app to collect a topic again now (supported by `disk`).
+
 ## [0.2.0] - 2026-10-08
 
 ### Added

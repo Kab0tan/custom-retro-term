@@ -80,6 +80,7 @@ for you.
 | `ctx.settings`, `ctx.onSettings(cb)`, `ctx.setSetting(key, value)` | Your settings. |
 | `ctx.theme`, `ctx.onTheme(cb)` | Phosphor colours (`theme.phosphor.base / bright / dim / faint / background`, `rgb` for WebGL), chrome text colours (`theme.chrome.fg / dim / border`), fonts. The same values are CSS variables: `var(--phosphor)`, `var(--phosphor-bright)`, `var(--chrome-fg)`, `var(--chrome-dim)`, `var(--font-mono)`, `var(--font-ui)`. |
 | `ctx.subscribe(topic, cb)` | Live data; returns an unsubscribe function. |
+| `ctx.refresh(topic)` | Collect a subscribed topic again now. Only `disk` supports it (a rescan); other topics ignore it. |
 | `ctx.animate(cb)` | Frame loop `cb(t, dt)` (seconds). Capped at the user's plugin frame rate and paused while the window is hidden or unfocused. Use it only for things that move. |
 | `ctx.paused` | Skip drawing from data callbacks while `true`. |
 | `ctx.onResize(cb)`, `ctx.size` | Panel size in CSS pixels. |
@@ -102,6 +103,7 @@ with the shell, so plugins are display panels.
 | `log` | as it comes | `{ entries: [{ time, level, source, message }], reset? }` (system/kernel log) |
 | `connections` | 2 s | `{ available: true, connections: [{ remoteAddress, remotePort, localPort }] }` |
 | `devices` | 5-10 s (30 s on Windows) | `{ available: true, host: { name, os, cores, memoryBytes }, devices: [{ id, name, bus, port, kind, connected, battery?, detail? }] }` (USB, paired Bluetooth, displays, network links) |
+| `disk` | ~1.5 s while scanning, then every 10 min | `{ available: true, root, scanning, bytes, files, scannedAt, volume?, entries: [{ name, bytes, dir, children? }] }` (home folder: its 10 largest entries, each with its 10 largest; `volume: { totalBytes, freeBytes }`) or `{ available: false, reason }` |
 | `audio` | ~30/s | `{ available: true, sampleRate, wave, spectrum, minDb, maxDb }` or `{ available: false, reason, message }`; needs consent |
 
 You get the latest value as soon as you subscribe. A topic is only collected while a visible panel wants it.

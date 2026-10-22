@@ -4,7 +4,7 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-orange.svg)](LICENSE)
 
 Retro CRT terminal for Windows, macOS and Linux: curvature, bloom, scanlines and amber/green/cyan phosphors.
-Put live panels next to your shell (system stats, kernel log, audio spectrum, device map), or write your own as one
+Put live panels next to your shell (system stats, kernel log, audio spectrum, device map, disk usage), or write your own as one
 small JavaScript plugin.
 
 Heavily inspired by [cool-retro-term](https://github.com/Swordfish90/cool-retro-term). custom-retro-term is a separate,
@@ -22,7 +22,7 @@ Windows, macOS and Linux · Electron + Vue + xterm.js + node-pty · WebGL CRT pi
 - **Panels next to the shell**: split, move and resize panels, and save layouts. Inside the shell panel, split a
   tab into several shells (panes, like tmux or Windows Terminal), then move between them, resize, zoom and close
   them from the keyboard.
-- **Bundled panels**: System (CPU, memory, network), Kernel log, Spectrum (system audio), Device map.
+- **Bundled panels**: System (CPU, memory, network), Kernel log, Spectrum (system audio), Device map, Disk usage.
 - **Plugins**: a manifest and one ES module, sandboxed, hot reload, no build step.
 - **Installers** for Windows, macOS and Linux, with auto-updates from GitHub Releases.
 
