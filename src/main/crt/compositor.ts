@@ -256,9 +256,13 @@ export async function openComposited(opts: CompositedOptions): Promise<Composite
   host.on('resize', syncSize)
   // The OSR window never gets OS focus on its own; mirror the host's so the UI
   // sees focus/blur (xterm's cursor, :focus styles, key handling).
+  // Linux: activating/deactivating the never-shown OSR window maps and unmaps it on X11, which
+  // hides the page and blanks xterm's WebGL canvas (the terminal text vanished whenever focus moved
+  // to another monitor). There, only the WebContents is focused and the native window is left alone.
+  const nativeOsrFocus = process.platform !== 'linux'
   const focusOsr = (): void => {
     if (!alive()) return
-    osr.focus()
+    if (nativeOsrFocus) osr.focus()
     uiWc.focus()
   }
   host.on('focus', () => {
@@ -267,8 +271,9 @@ export async function openComposited(opts: CompositedOptions): Promise<Composite
   })
   host.on('blur', () => {
     if (!alive()) return
-    osr.blur()
+    if (nativeOsrFocus) osr.blur()
     applyFrameRate()
+    uiWc.invalidate() // repaint the full frame at the new rate
   })
   host.once('ready-to-show', () => {
     if (opts.maximized) host.maximize()
