@@ -4,6 +4,7 @@ import { BUNDLED_FONTS, type CrtSettings, type Settings, type ShellProfile } fro
 import { isFontInstalled } from '../theme'
 import { setCrt, setSettings } from '../settingsWriter'
 import PluginSettings from '../plugins/PluginSettings.vue'
+import SelectMenu from './SelectMenu.vue'
 
 const props = defineProps<{
   settings: Settings
@@ -46,7 +47,7 @@ const fontInstalled = computed(() => isFontInstalled(props.settings.fontFamily))
 const rendererPending = computed(() => props.settings.crt.renderer !== props.activeRenderer)
 
 const root = ref<HTMLElement>()
-onMounted(() => root.value?.querySelector<HTMLElement>('select, input')?.focus())
+onMounted(() => root.value?.querySelector<HTMLElement>('button[aria-haspopup], input')?.focus())
 </script>
 
 <template>
@@ -60,9 +61,7 @@ onMounted(() => root.value?.querySelector<HTMLElement>('select, input')?.focus()
       <div class="grid">
         <h2>Startup</h2>
         <label for="s-shell">Default shell</label>
-        <select id="s-shell" :value="defaultId" @change="set({ defaultProfile: ($event.target as HTMLSelectElement).value })">
-          <option v-for="p in profiles" :key="p.id" :value="p.id">{{ p.name }}</option>
-        </select>
+        <SelectMenu id="s-shell" :value="defaultId" :options="profiles.map((p) => ({ value: p.id, label: p.name }))" @change="set({ defaultProfile: String($event) })" />
 
         <h2>Appearance</h2>
         <label>Look</label>
@@ -86,30 +85,45 @@ onMounted(() => root.value?.querySelector<HTMLElement>('select, input')?.focus()
         <input id="s-lh" type="number" min="1" max="3" step="0.05" :value="settings.lineHeight" @change="set({ lineHeight: num($event) })" />
         <label for="s-cursor">Cursor</label>
         <div class="row">
-          <select id="s-cursor" :value="settings.cursorStyle" @change="set({ cursorStyle: ($event.target as HTMLSelectElement).value as Settings['cursorStyle'] })">
-            <option value="block">Block</option>
-            <option value="bar">Bar</option>
-            <option value="underline">Underline</option>
-          </select>
+          <SelectMenu
+            id="s-cursor"
+            :value="settings.cursorStyle"
+            :options="[
+              { value: 'block', label: 'Block' },
+              { value: 'bar', label: 'Bar' },
+              { value: 'underline', label: 'Underline' }
+            ]"
+            @change="set({ cursorStyle: $event as Settings['cursorStyle'] })"
+          />
           <label class="check"><input type="checkbox" :checked="settings.cursorBlink" @change="set({ cursorBlink: !settings.cursorBlink })" /> Blink</label>
         </div>
 
         <h2>Rendering</h2>
         <label for="crt-fps">Frame rate</label>
         <div class="row">
-          <select id="crt-fps" :value="settings.crt.fpsCap" @change="setCrt({ fpsCap: num($event) as CrtSettings['fpsCap'] })">
-            <option :value="30">30 fps (lighter)</option>
-            <option :value="60">60 fps</option>
-            <option :value="120">120 fps</option>
-          </select>
+          <SelectMenu
+            id="crt-fps"
+            :value="settings.crt.fpsCap"
+            :options="[
+              { value: 30, label: '30 fps (lighter)' },
+              { value: 60, label: '60 fps' },
+              { value: 120, label: '120 fps' }
+            ]"
+            @change="setCrt({ fpsCap: $event as CrtSettings['fpsCap'] })"
+          />
           <label class="check"><input type="checkbox" :checked="settings.crt.pauseWhenUnfocused" @change="setCrt({ pauseWhenUnfocused: !settings.crt.pauseWhenUnfocused })" /> Pause animation when unfocused</label>
         </div>
         <label for="crt-renderer">Renderer</label>
         <div>
-          <select id="crt-renderer" :value="settings.crt.renderer" @change="setCrt({ renderer: ($event.target as HTMLSelectElement).value as CrtSettings['renderer'] })">
-            <option value="webgl">WebGL: full effect</option>
-            <option value="css">CSS overlay: best compatibility (IME, screen readers)</option>
-          </select>
+          <SelectMenu
+            id="crt-renderer"
+            :value="settings.crt.renderer"
+            :options="[
+              { value: 'webgl', label: 'WebGL: full effect' },
+              { value: 'css', label: 'CSS overlay: best compatibility (IME, screen readers)' }
+            ]"
+            @change="setCrt({ renderer: $event as CrtSettings['renderer'] })"
+          />
           <p v-if="rendererPending" class="warn">
             Applies after a restart, which closes all open tabs.
             <button class="btn inline" @click="relaunch">Restart now</button>
@@ -213,7 +227,7 @@ h2 {
   padding: 0 18px 16px;
 }
 input:not([type='checkbox']),
-select {
+.select {
   width: 100%;
   max-width: 320px;
   padding: 5px 8px;
@@ -226,7 +240,7 @@ select {
   gap: 16px;
   align-items: center;
 }
-.row select {
+.row .select {
   width: auto;
 }
 .checks {

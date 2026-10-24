@@ -2,6 +2,7 @@
 import { computed, nextTick, ref } from 'vue'
 import { PHOSPHOR_IDS, PHOSPHORS, type PhosphorId } from '@shared/phosphor'
 import { EFFECT_KEYS, type ColorScheme, type CrtSettings, type EffectKey, type Settings } from '@shared/settings'
+import SelectMenu, { type SelectOption } from './SelectMenu.vue'
 import { allPresets, applyPreset, BUILTIN_PRESETS, captureLook, isBuiltIn, matchesPreset } from '@shared/presets'
 import { setCrt, setSettings } from '../settingsWriter'
 
@@ -42,6 +43,11 @@ const setScheme = (scheme: ColorScheme): void => setSettings({ colorScheme: sche
 
 // ---------------------------------------------------------------- presets
 const presets = computed(() => allPresets(props.settings))
+const presetOptions = computed((): SelectOption[] => [
+  ...(active.value ? [] : [{ value: '', label: 'Custom', disabled: true }]),
+  ...BUILTIN_PRESETS.map((p) => ({ value: p.id, label: p.name, group: 'Built-in' })),
+  ...props.settings.presets.map((p) => ({ value: p.id, label: p.name, group: 'My presets' }))
+])
 const active = computed(() => presets.value.find((p) => p.id === props.settings.activePreset) ?? null)
 const modified = computed(() => !active.value || !matchesPreset(props.settings, active.value))
 const activeIsUser = computed(() => !!active.value && !isBuiltIn(active.value.id))
@@ -105,15 +111,7 @@ const revert = (): void => {
     <section>
       <h2>Preset</h2>
       <div class="row">
-        <select :value="settings.activePreset" aria-label="Preset" @change="pickPreset(($event.target as HTMLSelectElement).value)">
-          <option v-if="!active" value="" disabled>Custom</option>
-          <optgroup label="Built-in">
-            <option v-for="p in BUILTIN_PRESETS" :key="p.id" :value="p.id">{{ p.name }}</option>
-          </optgroup>
-          <optgroup v-if="settings.presets.length" label="My presets">
-            <option v-for="p in settings.presets" :key="p.id" :value="p.id">{{ p.name }}</option>
-          </optgroup>
-        </select>
+        <SelectMenu :value="active ? settings.activePreset : ''" :options="presetOptions" aria-label="Preset" @change="pickPreset(String($event))" />
         <span v-if="modified" class="badge" title="The current look differs from this preset">modified</span>
       </div>
 
@@ -251,7 +249,7 @@ section {
 .row.between h2 {
   margin: 0;
 }
-select,
+.select,
 input:not([type='checkbox']):not([type='range']) {
   flex: 1;
   min-width: 0;

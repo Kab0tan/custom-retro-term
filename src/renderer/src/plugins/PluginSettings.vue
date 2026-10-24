@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import { coerceSetting, PLUGIN_ID, resolveSettings, type CatalogEntry, type InstallResult, type PluginInfo, type PluginSettingSpec } from '@shared/plugins'
 import type { Settings } from '@shared/settings'
 import { setSettings } from '../settingsWriter'
+import SelectMenu from '../components/SelectMenu.vue'
 import { isEnabled, pluginFolder, pluginList, rescanPlugins } from './store'
 
 // Settings → Plugins: install/create, developer mode, catalog, and one card per plugin.
@@ -123,10 +124,15 @@ const installed = (id: string): boolean => pluginList.value.some((p) => p.id ===
     </label>
     <label class="check">
       Plugin animation
-      <select :value="settings.pluginFps" @change="setSettings({ pluginFps: Number(inputValue($event)) as Settings['pluginFps'] })">
-        <option :value="30">30 fps (lighter)</option>
-        <option :value="60">60 fps</option>
-      </select>
+      <SelectMenu
+        :value="settings.pluginFps"
+        :options="[
+          { value: 30, label: '30 fps (lighter)' },
+          { value: 60, label: '60 fps' }
+        ]"
+        aria-label="Plugin animation"
+        @change="setSettings({ pluginFps: $event as Settings['pluginFps'] })"
+      />
     </label>
 
     <details class="section" :open="settings.pluginDevMode">
@@ -220,9 +226,13 @@ const installed = (id: string): boolean => pluginList.value.some((p) => p.id ===
                 :checked="values(p)[spec.key] as boolean"
                 @change="setValue(p, spec, !values(p)[spec.key])"
               />
-              <select v-else :id="`pl-${p.id}-${spec.key}`" :value="values(p)[spec.key] as string" @change="setValue(p, spec, inputValue($event))">
-                <option v-for="o in spec.options" :key="o.value" :value="o.value">{{ o.label }}</option>
-              </select>
+              <SelectMenu
+                v-else
+                :id="`pl-${p.id}-${spec.key}`"
+                :value="values(p)[spec.key] as string"
+                :options="spec.options"
+                @change="setValue(p, spec, String($event))"
+              />
             </div>
           </template>
         </div>
@@ -256,7 +266,7 @@ const installed = (id: string): boolean => pluginList.value.some((p) => p.id ===
   min-width: 0;
 }
 input:not([type='checkbox']):not([type='range']),
-select {
+.select {
   padding: 4px 8px;
   background: var(--field-bg);
   border: 1px solid var(--chrome-border);
