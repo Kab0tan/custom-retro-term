@@ -66,9 +66,12 @@ export interface CrtSettings {
   effectsOff: EffectKey[]
   /** Frame-rate cap for the compositor. */
   fpsCap: 30 | 60 | 120
-  /** Stop flicker/noise animation while the window isn't focused (saves GPU). */
+  /** Stop flicker/noise animation and drop to UNFOCUSED_FPS while the window isn't focused (saves GPU). */
   pauseWhenUnfocused: boolean
 }
+
+/** Frame-rate cap while unfocused (with pauseWhenUnfocused): content still updates, at a pace the desktop compositor barely notices. */
+export const UNFOCUSED_FPS = 10
 
 /** The part of CrtSettings that makes up a "look" (what presets save). */
 export const LOOK_CRT_KEYS = [...EFFECT_KEYS, 'chroma', 'brightness', 'enabled', 'effectsOff'] as const

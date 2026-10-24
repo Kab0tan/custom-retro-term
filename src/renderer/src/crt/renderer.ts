@@ -4,7 +4,7 @@ import brightFrag from './bright.frag?raw'
 import blurFrag from './blur.frag?raw'
 import finalFrag from './final.frag?raw'
 import { CURVATURE_MAX } from '@shared/types'
-import type { CrtSettings } from '@shared/settings'
+import { UNFOCUSED_FPS, type CrtSettings } from '@shared/settings'
 
 type Uniforms = Record<string, WebGLUniformLocation | null>
 
@@ -171,7 +171,9 @@ export class CrtRenderer {
 
   wantsDraw(now: number, focused: boolean): boolean {
     if (!this.hasFrame) return false
-    if (now - this.lastDrawAt < 1000 / this.settings.fpsCap - 2) return false
+    const s = this.settings
+    const fps = focused || !s.pauseWhenUnfocused ? s.fpsCap : Math.min(UNFOCUSED_FPS, s.fpsCap)
+    if (now - this.lastDrawAt < 1000 / fps - 2) return false
     return this.dirty || this.needsAnimation(focused)
   }
 

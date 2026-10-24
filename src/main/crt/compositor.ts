@@ -9,7 +9,7 @@ import {
   type Rectangle,
   type WebContents
 } from 'electron'
-import type { Settings } from '@shared/settings'
+import { UNFOCUSED_FPS, type Settings } from '@shared/settings'
 import type { FrameTransport, UiRect } from '@shared/types'
 import type { ForwardedInputEvent } from '@shared/input'
 import type { OsrStatsSnapshot } from '../../preload/compositor-bridge'
@@ -98,7 +98,7 @@ export async function openComposited(opts: CompositedOptions): Promise<Composite
   const applyFrameRate = (s: Settings = getSettings()): void => {
     if (!alive()) return
     const focused = host.isFocused()
-    uiWc.setFrameRate(focused || !s.crt.pauseWhenUnfocused ? s.crt.fpsCap : Math.min(30, s.crt.fpsCap))
+    uiWc.setFrameRate(focused || !s.crt.pauseWhenUnfocused ? s.crt.fpsCap : Math.min(UNFOCUSED_FPS, s.crt.fpsCap))
   }
   applyFrameRate()
   settingsEvents.on('changed', applyFrameRate)

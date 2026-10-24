@@ -34,6 +34,14 @@ export const BUILTIN_PRESETS: LookPreset[] = [
     crt: look({ curvature: 0, scanlines: 0.12, bloom: 0.2, glow: 0.1, vignette: 0.15, rgbShift: 0, flicker: 0, noise: 0, burnIn: 0, chroma: 0.7 })
   },
   {
+    // Effects off: the frame is passed through untouched, and only redrawn when the content changes.
+    id: 'no-effects',
+    name: 'No effects (lowest power)',
+    phosphor: 'amber',
+    colorScheme: 'phosphor',
+    crt: look({ enabled: false, curvature: 0, scanlines: 0, bloom: 0, glow: 0, vignette: 0, rgbShift: 0, flicker: 0, noise: 0, burnIn: 0, chroma: 1 })
+  },
+  {
     id: 'full-retro',
     name: 'Full Retro',
     phosphor: 'amber',
